@@ -1,0 +1,47 @@
+name: ${COMPOSE_PROJECT_NAME:-selfhealing}
+
+services:
+  mininet-net:
+    build:
+      context: ./network
+    container_name: mininet-net
+    privileged: true
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
+    networks:
+      - emulation
+    volumes:
+      # Dev mounts: live source/config for the topology generator and
+      # the test suite (read-only).
+      - ./:/workspace:ro
+    healthcheck:
+      test: ["CMD-SHELL", "ovs-vsctl show >/dev/null 2>&1 && pgrep -x ovs-vswitchd >/dev/null"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  ryu-controller:
+    build:
+      context: ./controller
+    container_name: ryu-controller
+    ports:
+      - "${RYU_PORT:-6653}:6653"
+    restart: unless-stopped
+    networks:
+      - emulation
+    depends_on:
+      mininet-net:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('127.0.0.1', 6653), timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+networks:
+  emulation:
+    driver: bridge
+    internal: true

@@ -1,0 +1,68 @@
+# AI-Powered Autonomous Zero Trust Self-Healing Network
+
+Research-grade virtual enterprise network with autonomous failure prediction,
+zero-trust scoring, and self-healing — built one module at a time.
+
+Current state: **Submodule 1.3 (Network Control Layer) complete.** The
+virtual enterprise network builds from a YAML config (routers, switches,
+hosts, servers), connects its switches to the Ryu controller, provides L2
+connectivity, and is controlled exclusively through a `NetworkController`
+(state, events, safety, structured logging). No AI, telemetry, decision,
+healing, trust, or dashboard logic yet. Inter-subnet routing is a later
+module.
+
+## Stack
+
+| Component | Where | Status |
+|---|---|---|
+| Mininet + Open vSwitch data plane | `network/` | running (bootstrap + topology) |
+| Ryu SDN controller | `controller/` | running (registry + L2 learning switch) |
+| Enterprise topology generator | `network/src/network/` | Submodule 1.2 complete |
+| Network Control Layer | `network/src/network/control/` | Submodule 1.3 complete |
+| Telemetry / AI / Decision / Healing / Trust / Dashboard | — | later modules |
+
+## Prerequisites
+
+- Ubuntu Linux host (22.04 or 24.04) with Docker Engine + Compose v2
+- OVS kernel module on the host: `sudo modprobe openvswitch`
+- `python3` + `pytest` on the host for bootstrap unit tests (`python3 -m pip install pytest`)
+
+## Quickstart
+
+```bash
+docker compose up -d --build     # start mininet-net + ryu-controller
+docker compose ps                # both services should be healthy
+make net-up                      # build + start the enterprise network
+make net-status                  # show OVS bridges/ports
+```
+
+## Test
+
+```bash
+make config    # validate docker-compose.yml
+make unit      # bootstrap unit tests (host)
+make smoke     # container smoke test (builds the stack)
+make net-test  # all unit + integration tests in-container (Modules 1.1-1.3)
+```
+
+## Manage the enterprise network
+
+All commands go through `NetworkController` (the single interface to Mininet):
+
+```bash
+make net-up       # build/start the network (start_network)
+make net-down     # stop and clean all Mininet artifacts (stop_network)
+make net-reset    # clean, rebuild, start (reset_network)
+make net-status   # report bridges/ports (network_status)
+```
+
+## Layout
+
+```
+network/       Mininet + OVS container + topology generator (src/, config/)
+controller/    Ryu OpenFlow controller container (apps/)
+tests/         unit + integration + smoke tests
+docs/          architecture blueprint + research contribution
+```
+
+See `docs/README.md` for the full blueprint and the development roadmap.
