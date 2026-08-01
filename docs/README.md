@@ -18,5 +18,5 @@ Design and research documentation for the project. Implemented one module at a t
 
 ## Status
 
-- Module 1 (Virtual Enterprise Network): Submodule 1.1 (bootstrap) complete; Submodule 1.2 (enterprise topology generator) complete; Submodule 1.3 (Network Control Layer) complete — `NetworkController` is the only interface to Mininet, with `NetworkState` sync, in-process `EventBus` (7 event types), safety exceptions, structured JSON logging; launcher routes through the controller; 68 unit tests green (`make net-test` on Linux). Next: Module 2 (telemetry) or topology expansion
+- **Module 1 (Virtual Enterprise Network): COMPLETE** — Version 1.0.0. Includes configurable enterprise topology (1.2), Network Control Layer with `NetworkController`, `NetworkState`, in-process `EventBus` (13 event types), safety exceptions, structured JSON logging (1.3), Failure Injection Framework with 6 typed failure classes, `FailureRegistry`, `FailureManager` for router/switch/link/impairment injection and recovery (1.4A–1.4C), and reusable failure scenarios (1.4D). 219 unit tests passing. No AI, telemetry, trust, or healing logic.
 - Research contribution document: v1.0 drafted

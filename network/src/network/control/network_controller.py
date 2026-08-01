@@ -74,6 +74,7 @@ class NetworkController:
         self._event_bus = event_bus or EventBus()
         self._logger = logger or get_logger("network.control")
         self._net = None
+        self._impairments: dict = {}
         self._register_configured_state()
 
     # ------------------------------------------------------------------
@@ -204,6 +205,58 @@ class NetworkController:
         return link_state.to_dict()
 
     # ------------------------------------------------------------------
+    # Network impairments (Submodule 1.4C.1)
+    # ------------------------------------------------------------------
+    #
+    # Traffic-control APIs exposed by the controller (the only layer that
+    # talks to Mininet). Each set/clear validates the target link and the
+    # parameter range, updates the controller's impairment state, and
+    # applies the change to the data plane. Applying is best-effort: the
+    # controller calls ``configLinkImpairment(key, params)`` on the
+    # network if it is available (mocked in unit tests / a TCLink-backed
+    # Mininet); on a stock Mininet link the state is still tracked.
+
+    def set_link_latency(self, node1: str, node2: str, latency_ms) -> dict:
+        """Set added one-way latency (ms) on a link. Raises ``ValueError``
+        for negative latency, ``LinkNotFoundError`` for unknown links."""
+        self._require_running_and_link(node1, node2)
+        if latency_ms < 0:
+            raise ValueError(f"latency_ms must be >= 0 (got {latency_ms})")
+        return self._set_impairment(node1, node2, "latency_ms", float(latency_ms))
+
+    def clear_link_latency(self, node1: str, node2: str) -> dict:
+        self._require_running_and_link(node1, node2)
+        return self._set_impairment(node1, node2, "latency_ms", None)
+
+    def set_link_packet_loss(self, node1: str, node2: str, loss_percent) -> dict:
+        """Set packet-loss percentage on a link. Raises ``ValueError`` if
+        loss is outside [0, 100]."""
+        self._require_running_and_link(node1, node2)
+        if not (0 <= loss_percent <= 100):
+            raise ValueError(f"loss_percent must be within [0, 100] (got {loss_percent})")
+        return self._set_impairment(node1, node2, "loss_percent", float(loss_percent))
+
+    def clear_link_packet_loss(self, node1: str, node2: str) -> dict:
+        self._require_running_and_link(node1, node2)
+        return self._set_impairment(node1, node2, "loss_percent", None)
+
+    def set_link_bandwidth(self, node1: str, node2: str, bandwidth_mbps) -> dict:
+        """Set link bandwidth (Mbps). Raises ``ValueError`` if bandwidth
+        is <= 0."""
+        self._require_running_and_link(node1, node2)
+        if bandwidth_mbps <= 0:
+            raise ValueError(f"bandwidth_mbps must be > 0 (got {bandwidth_mbps})")
+        return self._set_impairment(node1, node2, "bandwidth_mbps", float(bandwidth_mbps))
+
+    def clear_link_bandwidth(self, node1: str, node2: str) -> dict:
+        self._require_running_and_link(node1, node2)
+        return self._set_impairment(node1, node2, "bandwidth_mbps", None)
+
+    def impairments(self) -> dict:
+        """Active link impairments keyed by canonical link name."""
+        return {key: dict(settings) for key, settings in self._impairments.items()}
+
+    # ------------------------------------------------------------------
     # Introspection
     # ------------------------------------------------------------------
 
@@ -299,6 +352,31 @@ class NetworkController:
                 f"link between {node1!r} and {node2!r} does not exist in the topology"
             )
         return link_state
+
+    def _require_running_and_link(self, node1: str, node2: str):
+        self._require_running()
+        return self._require_link(node1, node2)
+
+    @staticmethod
+    def _link_key(node1: str, node2: str) -> str:
+        return "-".join(sorted((node1, node2)))
+
+    def _set_impairment(self, node1: str, node2: str, kind: str, value) -> dict:
+        key = self._link_key(node1, node2)
+        entry = self._impairments.setdefault(key, {})
+        if value is None:
+            entry.pop(kind, None)
+            if not entry:
+                self._impairments.pop(key, None)
+        else:
+            entry[kind] = value
+        self._apply_impairment(key, dict(entry))
+        return dict(entry)
+
+    def _apply_impairment(self, key: str, params: dict) -> None:
+        apply = getattr(self._net, "configLinkImpairment", None)
+        if apply is not None:
+            apply(key, params)
 
     def _log(self, event_type: EventType, message: str) -> None:
         self._logger.info(

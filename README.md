@@ -3,13 +3,11 @@
 Research-grade virtual enterprise network with autonomous failure prediction,
 zero-trust scoring, and self-healing — built one module at a time.
 
-Current state: **Submodule 1.3 (Network Control Layer) complete.** The
-virtual enterprise network builds from a YAML config (routers, switches,
-hosts, servers), connects its switches to the Ryu controller, provides L2
-connectivity, and is controlled exclusively through a `NetworkController`
-(state, events, safety, structured logging). No AI, telemetry, decision,
-healing, trust, or dashboard logic yet. Inter-subnet routing is a later
-module.
+Current state: **Module 1 complete** — Enterprise SDN Foundation with
+configurable topology, network control layer, failure injection framework
+(models, registry, manager, scenarios), and structured event system.
+Version **1.0.0**. No AI, telemetry, decision, healing, trust, or
+dashboard logic yet. Inter-subnet routing is a later module.
 
 ## Stack
 
@@ -19,6 +17,10 @@ module.
 | Ryu SDN controller | `controller/` | running (registry + L2 learning switch) |
 | Enterprise topology generator | `network/src/network/` | Submodule 1.2 complete |
 | Network Control Layer | `network/src/network/control/` | Submodule 1.3 complete |
+| Failure Models & Registry | `network/src/network/failure/` | Submodule 1.4A complete |
+| FailureManager (router/switch/link/impairment) | `network/src/network/failure/` | Submodules 1.4B + 1.4C complete |
+| NetworkController impairment APIs | `network/src/network/control/` | Submodule 1.4C.1 complete |
+| Failure Scenarios | `network/src/network/failure/` | Submodule 1.4D complete |
 | Telemetry / AI / Decision / Healing / Trust / Dashboard | — | later modules |
 
 ## Prerequisites
@@ -42,7 +44,7 @@ make net-status                  # show OVS bridges/ports
 make config    # validate docker-compose.yml
 make unit      # bootstrap unit tests (host)
 make smoke     # container smoke test (builds the stack)
-make net-test  # all unit + integration tests in-container (Modules 1.1-1.3)
+make net-test  # all unit + integration tests in-container (Modules 1.1-1.4)
 ```
 
 ## Manage the enterprise network

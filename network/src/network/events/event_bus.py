@@ -9,7 +9,7 @@ from __future__ import annotations
 import itertools
 import logging
 import threading
-from typing import Callable, Dict, Optional
+from typing import Callable, Dict
 
 from network.events.event import Event
 

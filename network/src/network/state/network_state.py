@@ -11,7 +11,7 @@ Mininet network:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 NETWORK_RUNNING = "running"
 NETWORK_STOPPED = "stopped"

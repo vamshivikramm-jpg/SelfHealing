@@ -15,7 +15,7 @@ help:
 	@echo "  net-down   stop and clean the enterprise network"
 	@echo "  net-reset  clean, rebuild and start the enterprise network"
 	@echo "  net-status show current network state (bridges/ports)"
-	@echo "  net-test   run all unit + integration tests in-container (Modules 1.1-1.3)"
+	@echo "  net-test   run all unit + integration tests in-container (Modules 1.1-1.4C.2)"
 
 up:
 	docker compose up -d --build

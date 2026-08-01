@@ -31,7 +31,13 @@ def test_event_type_values():
     assert EventType.NODE_DISABLED.value == "NODE_DISABLED"
     assert EventType.LINK_CONNECTED.value == "LINK_CONNECTED"
     assert EventType.LINK_DISCONNECTED.value == "LINK_DISCONNECTED"
-    assert len(EventType) == 7
+    assert EventType.FAILURE_INJECTED.value == "FAILURE_INJECTED"
+    assert EventType.FAILURE_RECOVERED.value == "FAILURE_RECOVERED"
+    assert EventType.NETWORK_RESTORED.value == "NETWORK_RESTORED"
+    assert EventType.LATENCY_INJECTED.value == "LATENCY_INJECTED"
+    assert EventType.PACKET_LOSS_INJECTED.value == "PACKET_LOSS_INJECTED"
+    assert EventType.BANDWIDTH_LIMITED.value == "BANDWIDTH_LIMITED"
+    assert len(EventType) == 13
 
 
 def test_event_defaults_and_to_dict():
