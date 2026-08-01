@@ -1,0 +1,104 @@
+/* ── Reset & Base ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #0f1117; color: #e0e0e0; }
+
+/* ── Top Bar ── */
+#topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  height: 48px; padding: 0 20px;
+  background: #161b22; border-bottom: 1px solid #30363d;
+}
+.topbar-left { display: flex; align-items: center; gap: 10px; }
+.project-name { font-weight: 700; font-size: 15px; color: #f0f6fc; }
+.version { font-size: 11px; background: #1f6feb33; color: #58a6ff; padding: 2px 8px; border-radius: 10px; }
+.topbar-center { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #8b949e; }
+.status-dot { width: 10px; height: 10px; border-radius: 50%; background: #f85149; display: inline-block; transition: background .4s; }
+.status-dot.running { background: #3fb950; }
+.sep { color: #30363d; margin: 0 4px; }
+.topbar-right { font-size: 12px; color: #8b949e; font-variant-numeric: tabular-nums; }
+
+/* ── Offline Banner ── */
+.offline-banner {
+  background: #d2992233; border-bottom: 1px solid #d2992266;
+  color: #d29922; text-align: center; padding: 6px 12px;
+  font-size: 13px; font-weight: 600; letter-spacing: .3px;
+}
+
+/* ── Layout ── */
+#layout { display: flex; height: calc(100vh - 48px - 220px); }
+#layout.with-banner { height: calc(100vh - 48px - 30px - 220px); }
+
+/* ── Center ── */
+#center { flex: 1; position: relative; background: #0d1117; }
+#cy { width: 100%; height: 100%; }
+
+/* ── Sidebar ── */
+#sidebar {
+  width: 280px; overflow-y: auto; background: #161b22;
+  border-left: 1px solid #30363d; padding: 16px;
+  display: flex; flex-direction: column; gap: 16px;
+}
+.panel { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 14px; }
+.panel h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .5px; color: #8b949e; margin-bottom: 10px; }
+.summary-table { width: 100%; font-size: 13px; }
+.summary-table td { padding: 4px 0; }
+.summary-table td:last-child { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.summary-table .divider td { border-top: 1px solid #30363d; padding: 0; }
+.fail-count { color: #f85149; }
+
+/* ── Scroll Lists ── */
+.scroll-list { max-height: 200px; overflow-y: auto; font-size: 12px; }
+.scroll-list::-webkit-scrollbar { width: 6px; }
+.scroll-list::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
+.empty-msg { color: #484f58; font-style: italic; }
+
+/* ── Failure Items ── */
+.failure-item {
+  padding: 8px 10px; margin-bottom: 6px;
+  background: #161b22; border: 1px solid #30363d; border-radius: 6px;
+  border-left: 3px solid #f85149;
+}
+.failure-item .fi-type { font-weight: 600; color: #f0f6fc; }
+.failure-item .fi-nodes { color: #8b949e; margin-top: 2px; }
+.failure-item .fi-meta { color: #484f58; margin-top: 2px; font-size: 11px; }
+
+/* ── Bottom Panel ── */
+#bottom {
+  height: 220px; background: #161b22; border-top: 1px solid #30363d;
+  padding: 12px 20px; display: flex; flex-direction: column;
+}
+#bottom h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .5px; color: #8b949e; margin-bottom: 8px; }
+#eventLog { flex: 1; overflow-y: auto; font-size: 12px; font-family: 'SF Mono', 'Fira Code', monospace; }
+#eventLog::-webkit-scrollbar { width: 6px; }
+#eventLog::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
+
+/* ── Event Rows ── */
+.event-row {
+  display: grid; grid-template-columns: 190px 160px 1fr 80px;
+  padding: 4px 8px; border-bottom: 1px solid #21262d;
+  transition: background .3s;
+}
+.event-row:hover { background: #1c2128; }
+.event-row .ev-time { color: #484f58; }
+.event-row .ev-type { font-weight: 500; }
+.ev-type.NETWORK_STARTED, .ev-type.NODE_ENABLED, .ev-type.LINK_CONNECTED, .ev-type.FAILURE_RECOVERED, .ev-type.NETWORK_RESTORED { color: #3fb950; }
+.ev-type.NETWORK_STOPPED, .ev-type.NODE_DISABLED, .ev-type.LINK_DISCONNECTED { color: #f85149; }
+.ev-type.FAILURE_INJECTED, .ev-type.LATENCY_INJECTED, .ev-type.PACKET_LOSS_INJECTED, .ev-type.BANDWIDTH_LIMITED { color: #d29922; }
+.ev-type.NETWORK_RESET { color: #58a6ff; }
+.event-row .ev-target { color: #8b949e; }
+.event-row .ev-result { color: #3fb950; text-align: right; }
+
+/* ── Animations ── */
+@keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:.5; } }
+.pulse { animation: pulse 1.5s ease-in-out infinite; }
+
+/* ── Tooltip ── */
+.cy-tooltip {
+  position: absolute; background: #1c2128; border: 1px solid #30363d;
+  border-radius: 6px; padding: 8px 12px; font-size: 12px;
+  pointer-events: none; z-index: 1000; display: none;
+  box-shadow: 0 4px 12px rgba(0,0,0,.4);
+}
+.cy-tooltip .tt-name { font-weight: 700; color: #f0f6fc; }
+.cy-tooltip .tt-kind { color: #8b949e; margin-top: 2px; }
+.cy-tooltip .tt-state { margin-top: 4px; }

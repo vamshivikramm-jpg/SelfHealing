@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Enterprise Network Viewer</title>
+  <link rel="stylesheet" href="/static/css/dashboard.css">
+  <script src="https://unpkg.com/cytoscape@3.28.1/dist/cytoscape.min.js"></script>
+</head>
+<body>
+
+<!-- ─── Top Bar ─── -->
+<header id="topbar">
+  <div class="topbar-left">
+    <span class="project-name">Enterprise Network</span>
+    <span class="version" id="version">v1.0.0</span>
+  </div>
+  <div class="topbar-center">
+    <span class="status-dot" id="statusDot"></span>
+    <span id="statusLabel">stopped</span>
+    <span class="sep">|</span>
+    <span>Controller:</span>
+    <span id="controllerInfo">—</span>
+  </div>
+  <div class="topbar-right">
+    <span id="clock"></span>
+  </div>
+</header>
+
+<!-- ─── Offline Banner ─── -->
+<div id="offlineBanner" class="offline-banner" style="display:none">
+  Running in Offline Preview Mode (Mininet unavailable)
+</div>
+
+<!-- ─── Main Layout ─── -->
+<div id="layout">
+
+  <!-- ─── Center: Topology Graph ─── -->
+  <div id="center">
+    <div id="cy"></div>
+  </div>
+
+  <!-- ─── Right Sidebar ─── -->
+  <aside id="sidebar">
+    <section class="panel">
+      <h3>Network Summary</h3>
+      <table class="summary-table">
+        <tr><td>Routers</td><td id="cntRouters">0</td></tr>
+        <tr><td>Switches</td><td id="cntSwitches">0</td></tr>
+        <tr><td>Hosts</td><td id="cntHosts">0</td></tr>
+        <tr><td>Servers</td><td id="cntServers">0</td></tr>
+        <tr class="divider"><td colspan="2"></td></tr>
+        <tr><td>Active Failures</td><td id="cntFailures" class="fail-count">0</td></tr>
+        <tr><td>Recovered</td><td id="cntRecovered">0</td></tr>
+      </table>
+    </section>
+
+    <section class="panel" id="failurePanel">
+      <h3>Active Failures</h3>
+      <div id="failureList" class="scroll-list">
+        <p class="empty-msg">No active failures</p>
+      </div>
+    </section>
+  </aside>
+
+</div>
+
+<!-- ─── Bottom: Event Log ─── -->
+<footer id="bottom">
+  <h3>Live Event Log</h3>
+  <div id="eventLog" class="scroll-list"></div>
+</footer>
+
+<script src="/static/js/dashboard.js"></script>
+</body>
+</html>
