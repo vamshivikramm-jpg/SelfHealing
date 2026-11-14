@@ -36,9 +36,12 @@ def _versions() -> Dict[str, str]:
 
 
 class ModelRegistry:
-    def __init__(self, root: str):
+    def __init__(self, root: str, create: bool = True):
         self.root = str(root)
-        os.makedirs(self.root, exist_ok=True)
+        if not os.path.isdir(self.root):
+            if not create:
+                raise FileNotFoundError(f"model registry not found: {self.root}")
+            os.makedirs(self.root)
 
     # -- registration ---------------------------------------------------------
 

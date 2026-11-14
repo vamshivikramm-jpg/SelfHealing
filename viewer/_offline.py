@@ -102,6 +102,22 @@ _load("network.analytics.preprocess", "network/analytics/preprocess.py")
 _summary_mod       = _load("network.analytics.summary",
                            "network/analytics/summary.py")
 
+
+def load_prediction():
+    """Load the Module 4 live-prediction modules (needs numpy + scikit-learn).
+
+    Returns ``(ModelRegistry, OnlinePredictor)``; raises ImportError when
+    the viewer's environment lacks numpy/scikit-learn.
+    """
+    _stub_package("network.prediction")
+    _load("network.analytics.timeseries", "network/analytics/timeseries.py")
+    _load("network.analytics.features", "network/analytics/features.py")
+    _load("network.prediction.models", "network/prediction/models.py")  # for unpickling
+    registry = _load("network.prediction.registry", "network/prediction/registry.py")
+    online = _load("network.prediction.online", "network/prediction/online.py")
+    return registry.ModelRegistry, online.OnlinePredictor
+
+
 # Re-export what we need
 TopologyConfig      = _config_mod.TopologyConfig
 load_topology_config = _config_mod.load_topology_config

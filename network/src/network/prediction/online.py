@@ -88,6 +88,10 @@ class OnlinePredictor:
     @classmethod
     def from_registry(cls, registry, collector, event_bus=None, **kwargs) -> "OnlinePredictor":
         model, card = registry.load_champion()
+        # use the time step the model was trained with, not the collector's
+        trained_step = card.get("provenance", {}).get("suite", {}).get("step_s")
+        if trained_step:
+            kwargs.setdefault("step_s", trained_step)
         return cls(model, card["threshold"], collector, event_bus,
                    provenance=card.get("provenance", {}),
                    model_label=f"{card['name']} v{card['version']}", **kwargs)
@@ -167,6 +171,9 @@ class OnlinePredictor:
             "model": self.model_label,
             "threshold": self.threshold,
             "attached": self._token is not None,
+            "step_s": self.extractor.step_s,
+            "collector_interval_s": self.collector.interval_s,
+            "step_matches_collector": abs(self.extractor.step_s - self.collector.interval_s) < 1e-9,
             "alerts": [p["target"] for p in preds if p["alert"]],
             "training_data": {
                 "simulated": self.provenance.get("simulated", True),
