@@ -386,3 +386,91 @@ make net-test      # all unit + integration tests in-container (Modules 1.1-1.4)
 - New device kinds: add a class in `devices.py` and map it in
   `DEVICE_CLASSES` (`enterprise_topology.py`).
 - New validation rules: extend `config._validate()`.
+
+## Telemetry & Monitoring (Module 2 — simulated source)
+
+`network.telemetry` collects, stores and evaluates network telemetry. It
+imports only the standard library and the events layer (no Mininet), so it
+runs anywhere.
+
+> **All telemetry currently comes from `SimulatedSource`.** It is generated
+> from `NetworkState` and the controller's impairment settings, so it reacts
+> to every failure injected through `FailureManager`, but it is **not** a
+> measurement of the real data plane. Every sample carries
+> `simulated=True` and its source name. Live sources (Ryu OpenFlow port
+> statistics, ping/iperf probes) plug into the same interface once the Linux
+> lab exists.
+
+```
+TelemetrySource(s) -> Sample[] -> RateDeriver -> TelemetryStore
+                                              -> HealthEvaluator -> HEALTH_CHANGED
+```
+
+| Component | File | Role |
+|---|---|---|
+| `Metric`, `Sample`, `METRIC_SPECS` | `telemetry/metrics.py` | data model: 13 metrics (gauges, counters, derived) |
+| `TelemetryStore` | `telemetry/store.py` | thread-safe ring buffer per (metric, target) series |
+| `RateDeriver` | `telemetry/derive.py` | counters -> throughput / utilization / drop rate; handles counter resets |
+| `TelemetrySource`, `SimulatedSource` | `telemetry/sources/` | source interface + deterministic simulation |
+| `HealthEvaluator`, `Thresholds` | `telemetry/health.py` | HEALTHY / DEGRADED / DOWN / UNKNOWN with reasons |
+| `TelemetryCollector` | `telemetry/collector.py` | runs the pipeline once or on a background thread |
+
+### Metrics
+
+| Metric | Kind | Unit |
+|---|---|---|
+| `link.status`, `node.status` | gauge | 1 up / 0 down |
+| `link.latency_ms` | gauge | one-way ms |
+| `link.packet_loss_pct` | gauge | % (probe-measured) |
+| `link.capacity_mbps` | gauge | Mbps (bandwidth limit or line rate) |
+| `link.bytes`, `link.packets`, `link.dropped_packets` | counter | cumulative |
+| `link.throughput_mbps`, `link.utilization_pct`, `link.drop_rate_pps` | derived | from counter deltas |
+| `node.cpu_pct`, `node.memory_pct` | gauge | % |
+
+### Simulation model
+
+- A link is up when the network runs, the link is connected and both
+  endpoints are online. Down links report 100 % loss and carry no traffic.
+- Latency = 0.05 ms base + configured impairment + jitter.
+- Loss is measured by 50 simulated probes per sample, so a 10 % setting
+  reads around 10 % with realistic noise.
+- Offered load follows a periodic pattern (uplinks 120, server links 60,
+  access links 20 Mbps); delivered traffic is capped by capacity and
+  reduced by loss; the rest counts as dropped.
+- Counters reset when a switch/router restarts, like real port counters.
+- Same seed + same clock = identical output (reproducible experiments).
+
+### Health thresholds (defaults)
+
+latency > 50 ms, loss > 2 %, utilization > 85 %, drop rate > 100 pps,
+CPU > 90 %, memory > 90 % -> `DEGRADED`; status 0 -> `DOWN`.
+
+### Events
+
+| Event | When |
+|---|---|
+| `TELEMETRY_COLLECTED` | every collection (summary only; `result="partial"` if a source failed) |
+| `TELEMETRY_SOURCE_ERROR` | a source raised; other sources still run |
+| `HEALTH_CHANGED` | a target's status changed (transitions only) |
+
+```python
+from network.telemetry import SimulatedSource, TelemetryCollector
+
+collector = TelemetryCollector(
+    [SimulatedSource(controller, seed=1)],
+    event_bus=controller.event_bus,
+    interval_s=5,
+)
+collector.collect_once()          # or collector.start() / collector.stop()
+collector.health()["link:h1-sw-a"].status
+collector.store.series("link.latency_ms", "h1-sw-a")
+```
+
+### Viewer API
+
+`/api/telemetry/status`, `/api/telemetry/metrics`, `/api/telemetry/health`,
+`/api/telemetry/latest?metric=&target=`,
+`/api/telemetry/series?metric=&target=&limit=`. In offline preview the
+network is stopped (everything reads DOWN); start the viewer with
+`VIEWER_SIMULATE_NETWORK=1` to simulate a running network.
+`VIEWER_TELEMETRY_INTERVAL` sets the collection interval (default 5 s).

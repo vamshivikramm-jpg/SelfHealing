@@ -7,8 +7,10 @@ Submodule 1.4A: Failure models + in-memory registry.
 Submodule 1.4B: FailureManager core (router/switch/link injection & recovery).
 Submodule 1.4C: NetworkController impairment APIs + FailureManager integration.
 Submodule 1.4D: Reusable failure scenarios.
+Module 2: telemetry pipeline in ``network.telemetry`` (not re-exported
+here; it has no Mininet dependency and is imported directly).
 
-No AI, telemetry, trust, or healing logic.
+No AI, trust, or healing logic.
 """
 
 from network.config import ConfigError, TopologyConfig, load_topology_config
