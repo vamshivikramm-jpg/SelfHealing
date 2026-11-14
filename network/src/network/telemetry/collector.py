@@ -14,6 +14,11 @@ transitions rather than a stream of repeated states.
 
 ``collect_once()`` is synchronous and deterministic for tests; ``start()``
 runs it on a background thread every ``interval_s`` seconds.
+
+Listeners registered with ``add_listener`` receive every
+:class:`CollectionResult` (all samples), e.g. the Module 3 recorder that
+persists telemetry. A failing listener is logged and never breaks
+collection.
 """
 
 from __future__ import annotations
@@ -111,6 +116,25 @@ class TelemetryCollector:
 
         self._thread: Optional[threading.Thread] = None
         self._stop = threading.Event()
+        self._listeners: Dict[int, Callable[["CollectionResult"], None]] = {}
+        self._listener_ids = 0
+
+    # ------------------------------------------------------------------
+    # Listeners
+    # ------------------------------------------------------------------
+
+    def add_listener(self, listener: Callable[["CollectionResult"], None]) -> int:
+        """Call ``listener(result)`` after every collection. Returns a token."""
+        if not callable(listener):
+            raise TypeError("listener must be callable")
+        with self._lock:
+            self._listener_ids += 1
+            self._listeners[self._listener_ids] = listener
+            return self._listener_ids
+
+    def remove_listener(self, token: int) -> bool:
+        with self._lock:
+            return self._listeners.pop(token, None) is not None
 
     # ------------------------------------------------------------------
     # Introspection
@@ -191,7 +215,13 @@ class TelemetryCollector:
                 health_changes=changes,
             )
             self._last_result = result
+            listeners = list(self._listeners.values())
 
+        for listener in listeners:
+            try:
+                listener(result)
+            except Exception:  # noqa: BLE001 - listener isolation
+                self._logger.exception("telemetry listener failed")
         for change in changes:
             self._publish(EventType.HEALTH_CHANGED, change.to_dict())
             self._logger.info(
