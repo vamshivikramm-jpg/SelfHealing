@@ -637,6 +637,12 @@ VIEWER_SIMULATE_NETWORK=1 VIEWER_MODEL_DIR=data/module4/models \
   python3 -m uvicorn viewer.app:app --host 127.0.0.1 --port 8000
 ```
 
-`GET /api/predictions` returns scores and alerts, or 503 with the reason
-(the project `.venv` has no numpy/scikit-learn; use an environment that
-does, e.g. `pip install numpy scikit-learn joblib`).
+`GET /api/predictions` returns scores and alerts, or 503 with the reason.
+Environment caveats (checked on the development Mac):
+
+- The project `.venv` has no numpy/scikit-learn, so it returns 503 until
+  they are installed there (`pip install numpy scikit-learn joblib`).
+- An environment that can import the `mininet` package runs the viewer in
+  *live* mode, where the network is stopped unless started; every link
+  then reads as down and is not scored. `VIEWER_SIMULATE_NETWORK` only
+  applies in offline mode.
