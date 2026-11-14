@@ -389,9 +389,12 @@ make net-test      # all unit + integration tests in-container (Modules 1.1-1.4)
 
 ## Telemetry & Monitoring (Module 2 — simulated source)
 
-`network.telemetry` collects, stores and evaluates network telemetry. It
-imports only the standard library and the events layer (no Mininet), so it
-runs anywhere.
+`network.telemetry` collects, stores and evaluates network telemetry. Its
+modules import only the standard library and the events layer, never
+Mininet. Note that importing it as `network.telemetry` still runs
+`network/__init__.py`, which needs the `mininet` Python package; the
+viewer's offline loader (`viewer/_offline.py`) loads the telemetry modules
+individually to avoid that.
 
 > **All telemetry currently comes from `SimulatedSource`.** It is generated
 > from `NetworkState` and the controller's impairment settings, so it reacts
