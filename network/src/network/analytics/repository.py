@@ -191,6 +191,18 @@ class TelemetryRepository:
             return None
         return (row["lo"], row["hi"])
 
+    def simulated_mix(self) -> Optional[str]:
+        """``"simulated"``, ``"live"``, ``"mixed"``, or None when empty."""
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT MIN(simulated) AS lo, MAX(simulated) AS hi FROM samples"
+            ).fetchone()
+        if row["lo"] is None:
+            return None
+        if row["lo"] == row["hi"]:
+            return "simulated" if row["lo"] == 1 else "live"
+        return "mixed"
+
     def count_samples(self) -> int:
         with self._lock:
             return self._conn.execute("SELECT COUNT(*) FROM samples").fetchone()[0]

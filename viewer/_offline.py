@@ -92,6 +92,16 @@ _sim_mod           = _load("network.telemetry.sources.simulated",
 _collector_mod     = _load("network.telemetry.collector",
                            "network/telemetry/collector.py")
 
+# Module 3 analytics (storage + summaries only; no Mininet)
+_stub_package("network.analytics")
+_repo_mod          = _load("network.analytics.repository",
+                           "network/analytics/repository.py")
+_recorder_mod      = _load("network.analytics.recorder",
+                           "network/analytics/recorder.py")
+_load("network.analytics.preprocess", "network/analytics/preprocess.py")
+_summary_mod       = _load("network.analytics.summary",
+                           "network/analytics/summary.py")
+
 # Re-export what we need
 TopologyConfig      = _config_mod.TopologyConfig
 load_topology_config = _config_mod.load_topology_config
@@ -110,6 +120,9 @@ SimulatedSource     = _sim_mod.SimulatedSource
 TelemetryCollector  = _collector_mod.TelemetryCollector
 Metric              = _metrics_mod.Metric
 METRIC_SPECS        = _metrics_mod.METRIC_SPECS
+TelemetryRepository = _repo_mod.TelemetryRepository
+TelemetryRecorder   = _recorder_mod.TelemetryRecorder
+network_summary     = _summary_mod.network_summary
 
 SOURCE = "network.controller.offline"
 

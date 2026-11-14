@@ -13,9 +13,14 @@ response). In offline mode the network is "stopped", so every target
 reads DOWN unless VIEWER_SIMULATE_NETWORK=1 marks the offline topology
 as running for simulation purposes.
 
+Module 3: with VIEWER_DB_PATH set, telemetry and events are also
+recorded to a SQLite database and /api/analytics/summary reports
+availability, incidents and MTTR over a recent window.
+
 Environment:
   VIEWER_SIMULATE_NETWORK=1     offline only: simulate a running network
   VIEWER_TELEMETRY_INTERVAL=5   telemetry collection interval (seconds)
+  VIEWER_DB_PATH=path.db        record telemetry history (off when unset)
 """
 
 from __future__ import annotations
@@ -57,6 +62,9 @@ try:
     from network.telemetry import (                    # noqa: E402
         METRIC_SPECS, Metric, SimulatedSource, TelemetryCollector,
     )
+    from network.analytics.recorder import TelemetryRecorder      # noqa: E402
+    from network.analytics.repository import TelemetryRepository  # noqa: E402
+    from network.analytics.summary import network_summary         # noqa: E402
 except Exception:
     _OFFLINE_MODE = True
     from viewer._offline import OfflineController      # noqa: E402
@@ -65,6 +73,9 @@ except Exception:
     from viewer._offline import SimulatedSource        # noqa: E402
     from viewer._offline import TelemetryCollector     # noqa: E402
     from viewer._offline import Metric, METRIC_SPECS   # noqa: E402
+    from viewer._offline import TelemetryRepository    # noqa: E402
+    from viewer._offline import TelemetryRecorder      # noqa: E402
+    from viewer._offline import network_summary        # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Shared state
@@ -73,19 +84,22 @@ except Exception:
 _controller = None
 _manager = None
 _collector = None
+_repository = None
+_recorder = None
 _event_log: deque = deque(maxlen=200)
 _lock = threading.Lock()
 
 
 _SIMULATE_NETWORK = os.environ.get("VIEWER_SIMULATE_NETWORK", "") == "1"
 _TELEMETRY_INTERVAL = float(os.environ.get("VIEWER_TELEMETRY_INTERVAL", "5"))
+_DB_PATH = os.environ.get("VIEWER_DB_PATH", "")
 
 # High-frequency events that would flood the dashboard event log.
 _UNLOGGED_EVENTS = {"TELEMETRY_COLLECTED"}
 
 
 def _ensure_singletons() -> None:
-    global _controller, _manager, _collector
+    global _controller, _manager, _collector, _repository, _recorder
     if _controller is not None:
         return
 
@@ -105,6 +119,11 @@ def _ensure_singletons() -> None:
         event_bus=_controller.event_bus,
         interval_s=_TELEMETRY_INTERVAL,
     )
+    if _DB_PATH:
+        _repository = TelemetryRepository(_DB_PATH)
+        _recorder = TelemetryRecorder(
+            _repository, collector=_collector, event_bus=_controller.event_bus
+        ).attach()
 
 
 def _collect_event(event) -> None:
@@ -126,6 +145,10 @@ async def _lifespan(_app):
         yield
     finally:
         _collector.stop()
+        if _recorder is not None:
+            _recorder.detach()
+        if _repository is not None:
+            _repository.close()
 
 
 app = FastAPI(title="Enterprise Network Viewer", version="1.1.0", lifespan=_lifespan)
@@ -320,3 +343,24 @@ async def telemetry_series(metric: str, target: str, limit: int = 120):
         "simulated": _collector.simulated,
         "points": [{"timestamp": x.timestamp, "value": x.value} for x in samples],
     }
+
+
+# ---------------------------------------------------------------------------
+# Analytics API (Module 3) — needs VIEWER_DB_PATH
+# ---------------------------------------------------------------------------
+
+@app.get("/api/analytics/summary")
+async def analytics_summary(window_s: float = 3600.0):
+    _ensure_singletons()
+    if _repository is None:
+        raise HTTPException(
+            status_code=404,
+            detail="history recording is off; start the viewer with VIEWER_DB_PATH=<file.db>",
+        )
+    if window_s <= 0:
+        raise HTTPException(status_code=400, detail="window_s must be > 0")
+    rng = _repository.time_range()
+    if rng is None:
+        return {"recording": _recorder.stats(), "summary": None}
+    summary = network_summary(_repository, start=max(rng[0], rng[1] - window_s), end=rng[1] + 1e-6)
+    return {"recording": _recorder.stats(), "database": _repository.stats(), "summary": summary}
