@@ -477,3 +477,75 @@ collector.store.series("link.latency_ms", "h1-sw-a")
 network is stopped (everything reads DOWN); start the viewer with
 `VIEWER_SIMULATE_NETWORK=1` to simulate a running network.
 `VIEWER_TELEMETRY_INTERVAL` sets the collection interval (default 5 s).
+
+## Data Management & Analytics (Module 3)
+
+`network.analytics` stores telemetry history and turns it into
+datasets and statistics. Everything it produces from scenario runs is
+**simulated**; datasets that contain warning ramps are also
+**synthetic**. Both are recorded in each dataset's `metadata.json`.
+
+| Component | File | Role |
+|---|---|---|
+| `TelemetryRepository` | `analytics/repository.py` | SQLite: samples, events, baselines; time filters; retention purge |
+| `TelemetryRecorder` | `analytics/recorder.py` | persists every collection (via `collector.add_listener`) and event |
+| `resample`, `align`, `load_aligned` | `analytics/timeseries.py` | fixed-width buckets (mean/min/max/last/sum/count) |
+| `fill_gaps`, `clip`, scalers | `analytics/preprocess.py` | short-gap filling, clipping, standard/min-max scaling |
+| `FeatureExtractor` | `analytics/features.py` | rolling-window mean/std/min/max/last/delta/slope, no look-ahead |
+| `BaselineModel` | `analytics/baseline.py` | per-series normal range (mean, std, p50/p95/p99) and z-score deviations |
+| `ScenarioRunner`, `generate_plan` | `analytics/scenarios.py` | scripted failures on the in-memory data plane with ground truth |
+| `build_dataset`, `write_csv` | `analytics/dataset.py` | labelled rows + metadata |
+| `network_summary`, `incidents` | `analytics/summary.py` | availability, incidents, MTTR, MTBF |
+| `SimulatedNetworkBuilder` | `simulation/dataplane.py` | runs the real controller/failure manager without Mininet |
+
+### Generating a dataset
+
+```bash
+PYTHONPATH=network/src python3 -m network.analytics.generate \
+    --out data/run1 --duration 7200 --failures 12 --seed 1 --keep-db
+```
+
+Needs the `mininet` *Python package* (to import the controller) but no
+running network. Output: `links.csv`, `nodes.csv`, `metadata.json`,
+optionally `telemetry.db`. `data/` and `*.db` are git-ignored.
+
+Options: `--precursor-probability` (default 0.5; 0 disables synthetic
+warning ramps), `--horizon` (prediction horizon, default 60 s),
+`--windows` (feature windows, default `30,120`), `--step` (5 s).
+
+### Labels
+
+For a row stamped `t` (features use only data before `t`):
+
+| Column | Meaning |
+|---|---|
+| `label_failure_active` | a failure affecting this target overlaps the row's last bucket (detection) |
+| `label_failure_type` | that failure's kind, or `none` |
+| `label_failure_imminent` | no failure active, and one starts within the horizon (prediction) |
+| `label_time_to_failure_s` | seconds until that failure |
+| `label_precursor_active` | a synthetic warning ramp is in progress |
+
+A router/switch failure affects the node and every link attached to it.
+For prediction, train on rows with `label_failure_active == 0`.
+
+### Synthetic precursors
+
+A failure can be preceded by a ramp applied through the controller's
+impairment APIs (not recorded as a failure): latency 0→20 ms, loss
+0→1.5 %, or capacity 1000→40 Mbps. Latency and loss peaks stay below the
+health thresholds, so they are only visible as trends. **These patterns
+are designed, not observed** — a model that learns them proves the
+pipeline works, not that real networks behave this way.
+
+### Known simulation limits
+
+- Detection delay is always 0 s: simulated telemetry reflects a failure
+  in the same collection. Live telemetry will add at least one interval.
+- Failures are sequential and never overlap.
+- Traffic is synthetic (periodic pattern + noise), not real flows.
+
+### Viewer
+
+Start the viewer with `VIEWER_DB_PATH=history.db` to record telemetry and
+events; `GET /api/analytics/summary?window_s=3600` returns availability,
+worst targets and incident statistics for the last window.

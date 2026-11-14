@@ -6,10 +6,13 @@ zero-trust scoring, and self-healing — built one module at a time.
 Current state: **Module 1 complete** — Enterprise SDN Foundation with
 configurable topology, network control layer, failure injection framework
 (models, registry, manager, scenarios), and structured event system.
-Version **1.0.0**. **Module 2 (telemetry and monitoring) in progress**:
-the telemetry pipeline runs with a *simulated* source; live sources
-need a Linux lab with Mininet. No AI, decision, healing or trust logic
-yet. Inter-subnet routing is a later module.
+Version **1.0.0**. **Module 2 (telemetry and monitoring)**: the
+telemetry pipeline runs with a *simulated* source; live sources need a
+Linux lab with Mininet. **Module 3 (data management and analytics)**:
+SQLite history, preprocessing, features, baselines, labelled scenario
+datasets and availability/MTTR summaries — all on simulated data. No AI,
+decision, healing or trust logic yet. Inter-subnet routing is a later
+module.
 
 ## Stack
 
@@ -25,6 +28,7 @@ yet. Inter-subnet routing is a later module.
 | Failure Scenarios | `network/src/network/failure/` | Submodule 1.4D complete |
 | Telemetry pipeline (simulated source) | `network/src/network/telemetry/` | Module 2 — simulated only, live sources pending |
 | Read-only viewer + telemetry API | `viewer/` | basic; full dashboard is Module 8 |
+| Data management & analytics (SQLite, features, baselines, datasets) | `network/src/network/analytics/` | Module 3 — on simulated data |
 | AI / Decision / Healing / Trust | — | later modules |
 
 ## Prerequisites
