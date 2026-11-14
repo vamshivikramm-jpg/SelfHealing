@@ -10,9 +10,11 @@ Version **1.0.0**. **Module 2 (telemetry and monitoring)**: the
 telemetry pipeline runs with a *simulated* source; live sources need a
 Linux lab with Mininet. **Module 3 (data management and analytics)**:
 SQLite history, preprocessing, features, baselines, labelled scenario
-datasets and availability/MTTR summaries — all on simulated data. No AI,
-decision, healing or trust logic yet. Inter-subnet routing is a later
-module.
+datasets and availability/MTTR summaries — all on simulated data.
+**Module 4 (AI failure prediction)**: baselines and ML models compared on
+simulated runs with designed warning patterns, model registry and live
+early warning. No decision, healing or trust logic yet. Inter-subnet
+routing is a later module.
 
 ## Stack
 
@@ -29,7 +31,8 @@ module.
 | Telemetry pipeline (simulated source) | `network/src/network/telemetry/` | Module 2 — simulated only, live sources pending |
 | Read-only viewer + telemetry API | `viewer/` | basic; full dashboard is Module 8 |
 | Data management & analytics (SQLite, features, baselines, datasets) | `network/src/network/analytics/` | Module 3 — on simulated data |
-| AI / Decision / Healing / Trust | — | later modules |
+| Failure prediction (models, registry, live early warning) | `network/src/network/prediction/` | Module 4 — simulated data with synthetic warning patterns |
+| Decision / Healing / Trust | — | later modules |
 
 ## Prerequisites
 

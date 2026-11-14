@@ -252,3 +252,31 @@ def test_generate_cli(tmp_path, capsys):
     assert {p.name for p in out.iterdir()} == {"links.csv", "nodes.csv", "metadata.json", "telemetry.db"}
     summary = json.loads(capsys.readouterr().out)
     assert summary["simulated"] is True and summary["scenario"]["failures"] == 2
+
+
+# --------------------------------------------------------------------------
+# Module 4.0 dataset fixes: random gaps and cooldown label
+# --------------------------------------------------------------------------
+
+
+def test_generate_plan_random_gaps_vary():
+    plan = generate_plan(CONFIG, 20000, seed=9, n_failures=12)
+    gaps = [nxt.window_start_s - prev.end_s for prev, nxt in zip(plan.failures, plan.failures[1:])]
+    assert all(180 <= g <= 600 for g in gaps)
+    assert len(set(gaps)) > 3  # not a fixed schedule
+    fixed = generate_plan(CONFIG, 7200, seed=9, n_failures=5, gap_s=120.0)
+    assert {nxt.window_start_s - prev.end_s for prev, nxt in zip(fixed.failures, fixed.failures[1:])} == {120.0}
+
+
+@pytest.mark.parametrize("t,cooldown", [(150.0, 1), (269.0, 1), (270.0, 0), (90.0, 0)])
+def test_label_row_cooldown(t, cooldown):
+    record = _record(start=60.0, end=150.0, precursor_start=None, precursor_kind=None)
+    row = label_row({"timestamp": t, "target": "other"}, "link", [record], 60, 5, cooldown_s=120)
+    assert row["label_cooldown"] == cooldown
+
+
+def test_build_dataset_marks_cooldown_rows():
+    result = _run([PlannedFailure("link", ("sw-a", "h1"), 200, 60)], duration=600)
+    rows = build_dataset(result, FeatureExtractor(step_s=5, windows_s=(30, 60)))["link"]
+    cooled = {r["timestamp"] - T0 for r in rows if r["label_cooldown"]}
+    assert min(cooled) == 260 and max(cooled) == 315  # 60 s after recovery at 260

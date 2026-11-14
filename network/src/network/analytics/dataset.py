@@ -16,6 +16,12 @@ its last bucket is ``[t - step, t)``):
 - ``label_time_to_failure_s`` seconds until that failure, else empty
 - ``label_precursor_active``  1 if a synthetic warning ramp for a failure
                               affecting this target overlaps the bucket
+- ``label_cooldown``          1 if any failure ended less than
+                              ``cooldown_s`` before ``t``: the row's
+                              feature windows still see that failure.
+                              Exclude these rows when training or scoring
+                              prediction, or the model can learn the
+                              scenario schedule instead of real signals.
 
 For prediction, train on rows with ``label_failure_active == 0``; rows
 during a failure are trivially recognisable from link/node status.
@@ -38,11 +44,13 @@ LABEL_COLUMNS = (
     "label_failure_imminent",
     "label_time_to_failure_s",
     "label_precursor_active",
+    "label_cooldown",
 )
 ID_COLUMNS = ("timestamp", "target_kind", "target")
 
 
-def label_row(row: dict, target_kind: str, records: Sequence, horizon_s: float, step_s: float) -> dict:
+def label_row(row: dict, target_kind: str, records: Sequence, horizon_s: float, step_s: float,
+              cooldown_s: float = 0.0) -> dict:
     t = row["timestamp"]
     key = f"{target_kind}:{row['target']}"
     bucket_start = t - step_s
@@ -62,6 +70,9 @@ def label_row(row: dict, target_kind: str, records: Sequence, horizon_s: float, 
     labelled["label_failure_imminent"] = 1 if imminent else 0
     labelled["label_time_to_failure_s"] = min(upcoming) if imminent else None
     labelled["label_precursor_active"] = 1 if precursor else 0
+    labelled["label_cooldown"] = 1 if any(
+        r.end <= t and t - r.end < cooldown_s for r in records
+    ) else 0
     return labelled
 
 
@@ -70,9 +81,15 @@ def build_dataset(
     extractor: Optional[FeatureExtractor] = None,
     horizon_s: float = 60.0,
     metrics: Optional[Dict[str, Sequence]] = None,
+    cooldown_s: Optional[float] = None,
 ) -> Dict[str, List[dict]]:
-    """Labelled rows per target kind (``link`` / ``node``) from a ScenarioResult."""
+    """Labelled rows per target kind (``link`` / ``node``) from a ScenarioResult.
+
+    ``cooldown_s`` defaults to the longest feature window.
+    """
     extractor = extractor or FeatureExtractor(step_s=result.plan.step_s)
+    if cooldown_s is None:
+        cooldown_s = extractor.windows_s[-1]
     metrics = metrics or {"link": DEFAULT_LINK_METRICS, "node": DEFAULT_NODE_METRICS}
     end = result.end + result.plan.step_s
     datasets: Dict[str, List[dict]] = {}
@@ -80,7 +97,7 @@ def build_dataset(
         rows: List[dict] = []
         for target in result.repository.targets(kind):
             for row in extractor.extract(result.repository, target, kind_metrics, result.start, end):
-                rows.append(label_row(row, kind, result.records, horizon_s, extractor.step_s))
+                rows.append(label_row(row, kind, result.records, horizon_s, extractor.step_s, cooldown_s))
         rows.sort(key=lambda r: (r["timestamp"], r["target"]))
         datasets[kind] = rows
     return datasets
@@ -104,12 +121,14 @@ def write_csv(rows: Sequence[dict], path: str) -> int:
 
 
 def label_counts(rows: Iterable[dict]) -> dict:
-    counts = {"rows": 0, "failure_active": 0, "failure_imminent": 0, "precursor_active": 0, "by_type": {}}
+    counts = {"rows": 0, "failure_active": 0, "failure_imminent": 0, "precursor_active": 0,
+              "cooldown": 0, "by_type": {}}
     for row in rows:
         counts["rows"] += 1
         counts["failure_active"] += row["label_failure_active"]
         counts["failure_imminent"] += row["label_failure_imminent"]
         counts["precursor_active"] += row["label_precursor_active"]
+        counts["cooldown"] += row.get("label_cooldown", 0)
         kind = row["label_failure_type"]
         counts["by_type"][kind] = counts["by_type"].get(kind, 0) + 1
     return counts

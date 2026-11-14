@@ -21,6 +21,9 @@ Environment:
   VIEWER_SIMULATE_NETWORK=1     offline only: simulate a running network
   VIEWER_TELEMETRY_INTERVAL=5   telemetry collection interval (seconds)
   VIEWER_DB_PATH=path.db        record telemetry history (off when unset)
+  VIEWER_MODEL_DIR=dir          Module 4: run the registry's champion model
+                                for live failure prediction (needs numpy +
+                                scikit-learn in the viewer's environment)
 """
 
 from __future__ import annotations
@@ -93,13 +96,16 @@ _lock = threading.Lock()
 _SIMULATE_NETWORK = os.environ.get("VIEWER_SIMULATE_NETWORK", "") == "1"
 _TELEMETRY_INTERVAL = float(os.environ.get("VIEWER_TELEMETRY_INTERVAL", "5"))
 _DB_PATH = os.environ.get("VIEWER_DB_PATH", "")
+_MODEL_DIR = os.environ.get("VIEWER_MODEL_DIR", "")
+_predictor = None
+_prediction_error = None
 
 # High-frequency events that would flood the dashboard event log.
 _UNLOGGED_EVENTS = {"TELEMETRY_COLLECTED"}
 
 
 def _ensure_singletons() -> None:
-    global _controller, _manager, _collector, _repository, _recorder
+    global _controller, _manager, _collector, _repository, _recorder, _predictor, _prediction_error
     if _controller is not None:
         return
 
@@ -124,6 +130,19 @@ def _ensure_singletons() -> None:
         _recorder = TelemetryRecorder(
             _repository, collector=_collector, event_bus=_controller.event_bus
         ).attach()
+    if _MODEL_DIR:
+        try:
+            if _OFFLINE_MODE:
+                from viewer._offline import load_prediction
+                ModelRegistry, OnlinePredictor = load_prediction()
+            else:
+                from network.prediction.online import OnlinePredictor
+                from network.prediction.registry import ModelRegistry
+            _predictor = OnlinePredictor.from_registry(
+                ModelRegistry(_MODEL_DIR, create=False), _collector
+            ).attach()
+        except Exception as exc:  # noqa: BLE001 - reported by /api/predictions
+            _prediction_error = f"{type(exc).__name__}: {exc}"
 
 
 def _collect_event(event) -> None:
@@ -364,3 +383,20 @@ async def analytics_summary(window_s: float = 3600.0):
         return {"recording": _recorder.stats(), "summary": None}
     summary = network_summary(_repository, start=max(rng[0], rng[1] - window_s), end=rng[1] + 1e-6)
     return {"recording": _recorder.stats(), "database": _repository.stats(), "summary": summary}
+
+
+# ---------------------------------------------------------------------------
+# Prediction API (Module 4) — needs VIEWER_MODEL_DIR
+# ---------------------------------------------------------------------------
+
+@app.get("/api/predictions")
+async def predictions():
+    _ensure_singletons()
+    if not _MODEL_DIR:
+        raise HTTPException(
+            status_code=404,
+            detail="live prediction is off; start the viewer with VIEWER_MODEL_DIR=<model registry>",
+        )
+    if _predictor is None:
+        raise HTTPException(status_code=503, detail=f"prediction unavailable: {_prediction_error}")
+    return {"status": _predictor.status(), "predictions": _predictor.predictions()}

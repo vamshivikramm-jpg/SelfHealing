@@ -31,7 +31,7 @@ from __future__ import annotations
 import logging
 import random
 from dataclasses import asdict, dataclass, field
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple, Union
 
 from network.analytics.recorder import TelemetryRecorder
 from network.analytics.repository import TelemetryRepository
@@ -192,7 +192,7 @@ def generate_plan(
     n_failures: int = 8,
     step_s: float = 5.0,
     warmup_s: float = 300.0,
-    gap_s: float = 120.0,
+    gap_s: Union[float, Tuple[float, float]] = (180.0, 600.0),
     precursor_probability: float = 0.5,
     failure_duration_s: Tuple[float, float] = (30.0, 120.0),
     precursor_duration_s: Tuple[float, float] = (60.0, 180.0),
@@ -201,6 +201,12 @@ def generate_plan(
 ) -> ScenarioPlan:
     """Random but reproducible plan: a healthy warm-up, then failures one
     after another (never overlapping, with healthy gaps between them).
+
+    ``gap_s`` is the healthy time between one failure ending and the next
+    one's warning ramp (or start). A ``(low, high)`` range draws a random
+    gap each time; a fixed gap makes the next failure's timing predictable
+    from the previous one, which leaks into prediction datasets (found
+    while preparing Module 4), so the default is random.
 
     Raises ``ValueError`` if ``n_failures`` do not fit in ``duration_s``.
     """
@@ -212,8 +218,14 @@ def generate_plan(
     def snap(x: float) -> float:
         return round(x / step_s) * step_s
 
+    def gap() -> float:
+        if isinstance(gap_s, (tuple, list)):
+            return snap(rng.uniform(*gap_s))
+        return float(gap_s)
+
     failures: List[PlannedFailure] = []
     cursor = warmup_s
+    last_gap = 0.0
     for _ in range(n_failures):
         kind = rng.choice([k for k in kinds if k not in NODE_KINDS or nodes[k]])
         if kind in NODE_KINDS:
@@ -236,8 +248,9 @@ def generate_plan(
         duration = snap(rng.uniform(*failure_duration_s))
         start = cursor + (precursor.duration_s if precursor else 0.0)
         failures.append(PlannedFailure(kind, target, start, duration, magnitude, precursor))
-        cursor = start + duration + gap_s
-    if cursor - gap_s > duration_s:
+        last_gap = gap()
+        cursor = start + duration + last_gap
+    if cursor - last_gap > duration_s:
         raise ValueError(
             f"{n_failures} failures need about {int(cursor)} s; increase duration_s or reduce n_failures"
         )

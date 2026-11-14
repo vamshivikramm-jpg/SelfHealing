@@ -11,7 +11,8 @@ specific events (LATENCY_INJECTED, PACKET_LOSS_INJECTED,
 BANDWIDTH_LIMITED) used by FailureManager for link impairments.
 Module 2 adds telemetry events (TELEMETRY_COLLECTED,
 TELEMETRY_SOURCE_ERROR, HEALTH_CHANGED) published by the
-TelemetryCollector.
+TelemetryCollector. Module 4 adds FAILURE_PREDICTED and
+PREDICTION_CLEARED, published by the OnlinePredictor.
 """
 
 from enum import Enum
@@ -34,3 +35,5 @@ class EventType(str, Enum):
     TELEMETRY_COLLECTED = "TELEMETRY_COLLECTED"
     TELEMETRY_SOURCE_ERROR = "TELEMETRY_SOURCE_ERROR"
     HEALTH_CHANGED = "HEALTH_CHANGED"
+    FAILURE_PREDICTED = "FAILURE_PREDICTED"
+    PREDICTION_CLEARED = "PREDICTION_CLEARED"

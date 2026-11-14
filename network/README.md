@@ -549,3 +549,100 @@ pipeline works, not that real networks behave this way.
 Start the viewer with `VIEWER_DB_PATH=history.db` to record telemetry and
 events; `GET /api/analytics/summary?window_s=3600` returns availability,
 worst targets and incident statistics for the last window.
+
+## Failure Prediction (Module 4)
+
+`network.prediction` predicts link failures before they happen. Requires
+numpy and scikit-learn (`pip install -e "network[ml]"`).
+
+> **Every result below is on simulated data with designed warning
+> patterns (synthetic precursors).** It shows the pipeline can learn the
+> patterns we built in, not that real networks show them. Failures with
+> no warning signs are unpredictable by design and reported separately.
+
+### Objectives (fixed before choosing models)
+
+| | Measure | Target |
+|---|---|---|
+| O1 | failures *with warning signs* caught ≥ 30 s ahead; false alarms per hour (whole network) | ≥ 80 %, ≤ 1/h |
+| O2 | ML vs the z-score baseline | ML only if it beats z-score |
+| O3 | confidence scores | calibration reported (Brier, reliability) |
+
+Detection of failures already in progress is *not* a Module 4 goal: the
+link status gives it away and Module 2's health check already does it.
+
+### Data and leakage
+
+- Rows during a failure and rows whose feature windows still contain a
+  just-ended failure (`label_cooldown`) are excluded.
+- Train, validation and test are separate simulated runs (seeds), never a
+  random split of rows from one run.
+- Found while examining the data: a fixed 120 s gap between failures let
+  models infer the schedule. Gaps are now random (180–600 s); after the
+  fix no model catches failures without warning signs.
+
+### Models
+
+| Name | Kind | Notes |
+|---|---|---|
+| `threshold` | rule | Module 2 health thresholds on the latest values |
+| `zscore` | statistical | largest distance from normal (latest value and trend) |
+| `isolation_forest` | unsupervised | anomaly score, trained on normal rows only |
+| `logistic_regression` | supervised | linear, interpretable |
+| `random_forest` | supervised | non-linear trees |
+| `gradient_boosting` | supervised | HistGradientBoosting |
+
+Each model's alarm threshold is chosen on validation runs (highest event
+recall within 1 false alarm/hour) and applied unchanged to test runs.
+
+### Results (default suite; train seeds 1–4, validation 5–6, test 7–9; 4 h each)
+
+| Model | Caught, with signs | Caught, no signs | Median lead | False alarms/h | Avg precision |
+|---|---|---|---|---|---|
+| threshold | 26 % | 0 % | 45 s | 0.00 | 0.06 |
+| zscore | 97 % | 0 % | 110 s | 0.00 | 0.24 |
+| isolation_forest | 68 % | 0 % | 95 s | 0.17 | 0.16 |
+| logistic_regression | 97 % | 0 % | 95 s | 0.00 | 0.27 |
+| random_forest (champion) | 100 % | 0 % | 60 s | 0.33 | 0.29 |
+| gradient_boosting | 90 % | 0 % | 55 s | 0.00 | 0.28 |
+
+Reading: the simple z-score baseline already meets O1, because the
+synthetic ramps are clean. Random forest is chosen on validation and is
+slightly better on test (100 % vs 97 %, higher average precision) at the
+cost of more false alarms and shorter lead time. The ML margin is small;
+on this data, ML is not clearly necessary. Reproduce with:
+
+```bash
+PYTHONPATH=network/src python3 -m network.prediction.experiment --out data/module4
+```
+
+(about 1.5 minutes; writes `report.md`, `report.json` and a model
+registry in `data/module4/models`). `--quick` runs a small suite.
+
+### Model registry
+
+`ModelRegistry` stores `<name>/v<N>/model.joblib` + `card.json` (threshold,
+metrics, feature names, library versions, training-data provenance
+including the simulated/synthetic flags). New versions are challengers;
+`promote` sets the champion, `rollback` restores the previous one.
+
+### Live early warning
+
+`OnlinePredictor` scores every up link after each collection and
+publishes `FAILURE_PREDICTED` / `PREDICTION_CLEARED` events carrying the
+score, model version and training-data flags. In the viewer:
+
+```bash
+VIEWER_SIMULATE_NETWORK=1 VIEWER_MODEL_DIR=data/module4/models \
+  python3 -m uvicorn viewer.app:app --host 127.0.0.1 --port 8000
+```
+
+`GET /api/predictions` returns scores and alerts, or 503 with the reason.
+Environment caveats (checked on the development Mac):
+
+- The project `.venv` has no numpy/scikit-learn, so it returns 503 until
+  they are installed there (`pip install numpy scikit-learn joblib`).
+- An environment that can import the `mininet` package runs the viewer in
+  *live* mode, where the network is stopped unless started; every link
+  then reads as down and is not scored. `VIEWER_SIMULATE_NETWORK` only
+  applies in offline mode.

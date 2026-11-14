@@ -40,7 +40,9 @@ def test_event_type_values():
     assert EventType.TELEMETRY_COLLECTED.value == "TELEMETRY_COLLECTED"
     assert EventType.TELEMETRY_SOURCE_ERROR.value == "TELEMETRY_SOURCE_ERROR"
     assert EventType.HEALTH_CHANGED.value == "HEALTH_CHANGED"
-    assert len(EventType) == 16
+    assert EventType.FAILURE_PREDICTED.value == "FAILURE_PREDICTED"
+    assert EventType.PREDICTION_CLEARED.value == "PREDICTION_CLEARED"
+    assert len(EventType) == 18
 
 
 def test_event_defaults_and_to_dict():
