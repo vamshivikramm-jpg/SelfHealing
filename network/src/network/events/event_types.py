@@ -9,6 +9,9 @@ NETWORK_RESTORED (emitted when FailureManager.reset_all_failures()
 recovers every active failure). Submodule 1.4C.2 adds impairment-
 specific events (LATENCY_INJECTED, PACKET_LOSS_INJECTED,
 BANDWIDTH_LIMITED) used by FailureManager for link impairments.
+Module 2 adds telemetry events (TELEMETRY_COLLECTED,
+TELEMETRY_SOURCE_ERROR, HEALTH_CHANGED) published by the
+TelemetryCollector.
 """
 
 from enum import Enum
@@ -28,3 +31,6 @@ class EventType(str, Enum):
     LATENCY_INJECTED = "LATENCY_INJECTED"
     PACKET_LOSS_INJECTED = "PACKET_LOSS_INJECTED"
     BANDWIDTH_LIMITED = "BANDWIDTH_LIMITED"
+    TELEMETRY_COLLECTED = "TELEMETRY_COLLECTED"
+    TELEMETRY_SOURCE_ERROR = "TELEMETRY_SOURCE_ERROR"
+    HEALTH_CHANGED = "HEALTH_CHANGED"

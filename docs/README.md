@@ -19,4 +19,5 @@ Design and research documentation for the project. Implemented one module at a t
 ## Status
 
 - **Module 1 (Virtual Enterprise Network): COMPLETE** — Version 1.0.0. Includes configurable enterprise topology (1.2), Network Control Layer with `NetworkController`, `NetworkState`, in-process `EventBus` (13 event types), safety exceptions, structured JSON logging (1.3), Failure Injection Framework with 6 typed failure classes, `FailureRegistry`, `FailureManager` for router/switch/link/impairment injection and recovery (1.4A–1.4C), and reusable failure scenarios (1.4D). 219 unit tests passing. No AI, telemetry, trust, or healing logic.
+- **Module 2 (Network Telemetry & Monitoring): IN PROGRESS** — telemetry data model, in-memory store, counter-to-rate derivation, threshold health evaluation, `TelemetryCollector` and viewer telemetry API, all running on a deterministic **simulated** source driven by `NetworkState` and injected failures. Live sources (Ryu OpenFlow port stats, ping/iperf probes) await the Linux lab (Module 2.0).
 - Research contribution document: v1.0 drafted

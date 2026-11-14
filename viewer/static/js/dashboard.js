@@ -235,7 +235,8 @@ function renderEvents(events) {
   box.innerHTML = events.slice(0, 100).map((e) => {
     const ts = e.timestamp ? e.timestamp.replace('T',' ').substring(0,19) : '—';
     const typ = e.type || 'UNKNOWN';
-    const tgt = e.data ? (e.data.node || e.data.switch || e.data.link || e.data.router || '') : '';
+    let tgt = e.data ? (e.data.node || e.data.switch || e.data.link || e.data.router || e.data.target || e.data.source || '') : '';
+    if (typ === 'HEALTH_CHANGED' && e.data) tgt = `${tgt}: ${e.data.previous} → ${e.data.status}`;
     return `<div class="event-row">
       <span class="ev-time">${ts}</span>
       <span class="ev-type ${typ}">${typ}</span>
@@ -272,9 +273,12 @@ async function poll() {
     renderFailures(active);
     $('cntRecovered').textContent = (failRes.recovered || []).length;
 
-    if (events.length !== lastEventCount) {
+    // Key on the newest event too: once the server's 200-entry log is full,
+    // its length stops changing while new events keep arriving.
+    const eventKey = events.length + '|' + (events[0] ? events[0].timestamp + events[0].type : '');
+    if (eventKey !== lastEventCount) {
       renderEvents(events);
-      lastEventCount = events.length;
+      lastEventCount = eventKey;
     }
 
     updateGraph(topo, active);

@@ -37,7 +37,10 @@ def test_event_type_values():
     assert EventType.LATENCY_INJECTED.value == "LATENCY_INJECTED"
     assert EventType.PACKET_LOSS_INJECTED.value == "PACKET_LOSS_INJECTED"
     assert EventType.BANDWIDTH_LIMITED.value == "BANDWIDTH_LIMITED"
-    assert len(EventType) == 13
+    assert EventType.TELEMETRY_COLLECTED.value == "TELEMETRY_COLLECTED"
+    assert EventType.TELEMETRY_SOURCE_ERROR.value == "TELEMETRY_SOURCE_ERROR"
+    assert EventType.HEALTH_CHANGED.value == "HEALTH_CHANGED"
+    assert len(EventType) == 16
 
 
 def test_event_defaults_and_to_dict():
