@@ -21,3 +21,7 @@ htmlcov/
 .idea/
 .vscode/
 *.swp
+
+# Generated datasets and telemetry databases (Module 3)
+data/
+*.db
