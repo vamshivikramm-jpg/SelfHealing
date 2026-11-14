@@ -77,6 +77,21 @@ _et_mod            = _load("network.events.event_types",
 _eb_mod            = _load("network.events.event_bus",
                            "network/events/event_bus.py")
 
+# Module 2 telemetry (standard library + events only; no Mininet)
+_stub_package("network.telemetry")
+_stub_package("network.telemetry.sources")
+_load("network.logging", "network/logging.py")
+_metrics_mod       = _load("network.telemetry.metrics",
+                           "network/telemetry/metrics.py")
+_load("network.telemetry.store", "network/telemetry/store.py")
+_load("network.telemetry.derive", "network/telemetry/derive.py")
+_load("network.telemetry.health", "network/telemetry/health.py")
+_load("network.telemetry.sources.base", "network/telemetry/sources/base.py")
+_sim_mod           = _load("network.telemetry.sources.simulated",
+                           "network/telemetry/sources/simulated.py")
+_collector_mod     = _load("network.telemetry.collector",
+                           "network/telemetry/collector.py")
+
 # Re-export what we need
 TopologyConfig      = _config_mod.TopologyConfig
 load_topology_config = _config_mod.load_topology_config
@@ -91,6 +106,10 @@ FailureState        = _ft_mod.FailureState
 Event               = _ev_mod.Event
 EventBus            = _eb_mod.EventBus
 EventType           = _et_mod.EventType
+SimulatedSource     = _sim_mod.SimulatedSource
+TelemetryCollector  = _collector_mod.TelemetryCollector
+Metric              = _metrics_mod.Metric
+METRIC_SPECS        = _metrics_mod.METRIC_SPECS
 
 SOURCE = "network.controller.offline"
 
@@ -119,6 +138,7 @@ class OfflineController:
         self._event_bus = EventBus()
         self._registry = FailureRegistry()
         self._impairments: Dict[str, dict] = {}
+        self._simulated_running = False
         self._register_configured_state()
 
     @property
@@ -202,6 +222,22 @@ class OfflineController:
 
     def impairments(self) -> dict:
         return dict(self._impairments)
+
+    @property
+    def simulated_running(self) -> bool:
+        return self._simulated_running
+
+    def simulate_running(self) -> None:
+        """Mark the (non-existent) network as running for simulated telemetry.
+
+        Offline preview only: there is no data plane. This lets the
+        simulated telemetry source show a healthy baseline instead of an
+        all-DOWN network. Every API response flags the simulation.
+        """
+        self._simulated_running = True
+        self._state.mark_all_nodes(_state_mod.NODE_ONLINE)
+        self._state.mark_all_links(_state_mod.LINK_CONNECTED)
+        self._state.set_running()
 
     def _register_configured_state(self) -> None:
         for dev in self._config.devices:
