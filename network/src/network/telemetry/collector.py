@@ -14,6 +14,11 @@ transitions rather than a stream of repeated states.
 
 ``collect_once()`` is synchronous and deterministic for tests; ``start()``
 runs it on a background thread every ``interval_s`` seconds.
+
+Listeners registered with ``add_listener`` receive every
+:class:`CollectionResult` (all samples), e.g. the Module 3 recorder that
+persists telemetry. A failing listener is logged and never breaks
+collection.
 """
 
 from __future__ import annotations
@@ -21,6 +26,7 @@ from __future__ import annotations
 import threading
 import time
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import Callable, Dict, Iterable, List, Optional
 
 from network.events.event import Event
@@ -111,6 +117,25 @@ class TelemetryCollector:
 
         self._thread: Optional[threading.Thread] = None
         self._stop = threading.Event()
+        self._listeners: Dict[int, Callable[["CollectionResult"], None]] = {}
+        self._listener_ids = 0
+
+    # ------------------------------------------------------------------
+    # Listeners
+    # ------------------------------------------------------------------
+
+    def add_listener(self, listener: Callable[["CollectionResult"], None]) -> int:
+        """Call ``listener(result)`` after every collection. Returns a token."""
+        if not callable(listener):
+            raise TypeError("listener must be callable")
+        with self._lock:
+            self._listener_ids += 1
+            self._listeners[self._listener_ids] = listener
+            return self._listener_ids
+
+    def remove_listener(self, token: int) -> bool:
+        with self._lock:
+            return self._listeners.pop(token, None) is not None
 
     # ------------------------------------------------------------------
     # Introspection
@@ -173,7 +198,7 @@ class TelemetryCollector:
                     samples.extend(source.collect(timestamp))
                 except Exception as exc:  # noqa: BLE001 - source isolation
                     errors[source.name] = f"{type(exc).__name__}: {exc}"
-                    self._source_failed(source, exc)
+                    self._source_failed(source, exc, timestamp)
 
             derived = self.deriver.process(samples)
             self.store.add(samples)
@@ -191,9 +216,15 @@ class TelemetryCollector:
                 health_changes=changes,
             )
             self._last_result = result
+            listeners = list(self._listeners.values())
 
+        for listener in listeners:
+            try:
+                listener(result)
+            except Exception:  # noqa: BLE001 - listener isolation
+                self._logger.exception("telemetry listener failed")
         for change in changes:
-            self._publish(EventType.HEALTH_CHANGED, change.to_dict())
+            self._publish(EventType.HEALTH_CHANGED, change.to_dict(), timestamp=timestamp)
             self._logger.info(
                 f"{change.key} {change.previous.value} -> {change.current.status.value}",
                 extra={"event": EventType.HEALTH_CHANGED.value, "result": "success"},
@@ -202,6 +233,7 @@ class TelemetryCollector:
             EventType.TELEMETRY_COLLECTED,
             {**result.summary(), "simulated": self.simulated},
             result="partial" if errors else "success",
+            timestamp=timestamp,
         )
         return result
 
@@ -217,7 +249,7 @@ class TelemetryCollector:
             self._health[key] = report
         return changes
 
-    def _source_failed(self, source: TelemetrySource, exc: Exception) -> None:
+    def _source_failed(self, source: TelemetrySource, exc: Exception, timestamp: float) -> None:
         self._logger.error(
             f"telemetry source {source.name!r} failed: {exc}",
             extra={"event": EventType.TELEMETRY_SOURCE_ERROR.value, "result": "failure"},
@@ -226,6 +258,7 @@ class TelemetryCollector:
             EventType.TELEMETRY_SOURCE_ERROR,
             {"source": source.name, "error": f"{type(exc).__name__}: {exc}"},
             result="failure",
+            timestamp=timestamp,
         )
 
     # ------------------------------------------------------------------
@@ -258,5 +291,11 @@ class TelemetryCollector:
                 self._logger.exception("telemetry collection failed")
             self._stop.wait(self.interval_s)
 
-    def _publish(self, event_type: EventType, data: dict, result: str = "success") -> None:
-        self.event_bus.publish(Event(type=event_type, source=SOURCE, data=data, result=result))
+    def _publish(self, event_type: EventType, data: dict, result: str = "success",
+                 timestamp: Optional[float] = None) -> None:
+        """Publish an event stamped with the collection time (the collector's
+        clock), so events line up with the samples they describe."""
+        kwargs = {}
+        if timestamp is not None:
+            kwargs["timestamp"] = datetime.fromtimestamp(timestamp, tz=timezone.utc).isoformat()
+        self.event_bus.publish(Event(type=event_type, source=SOURCE, data=data, result=result, **kwargs))
