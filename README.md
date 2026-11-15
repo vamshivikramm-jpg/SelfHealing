@@ -18,8 +18,10 @@ default-deny policy, dynamic trust scores, behaviour detectors and
 simulated enforcement, evaluated on synthetic attacks. **Module 6
 (decision engine)**: Eq. 4 risk, vendor-neutral intents, path planning,
 safety checks and a human approval gate, evaluated end to end in
-simulation. No self-healing execution yet (Module 7). Inter-subnet
-routing is a later module.
+simulation. **Module 7 (self-healing)**: executes decisions, verifies
+them against telemetry and traffic delivery, undoes/escalates, evaluated
+against baselines and ablations — all on a simulated network with a
+physical-fault model. Inter-subnet routing is a later module.
 
 ## Stack
 
@@ -39,7 +41,7 @@ routing is a later module.
 | Failure prediction (models, registry, live early warning) | `network/src/network/prediction/` | Module 4 — simulated data with synthetic warning patterns |
 | Zero Trust (identities, trust, policy, enforcement) | `network/src/network/security/` | Module 5 — simulated traffic, synthetic attacks; enforcement simulated |
 | Decision engine (risk, intents, paths, safety) | `network/src/network/decision/` | Module 6 — decides only; evaluated in simulation |
-| Self-healing execution | — | Module 7 |
+| Self-healing (execute, verify, undo, escalate) | `network/src/network/healing/` | Module 7 — simulated execution; live executor needs the Linux lab |
 
 ## Prerequisites
 

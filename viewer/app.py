@@ -522,3 +522,20 @@ async def decisions(limit: int = 50):
     d = _require_decisions()
     return {"status": d.status(), "active": d.engine.active_intents(), "pending_approval": d.engine.pending(),
             "log": list(d.engine.log)[:limit]}
+
+
+# ---------------------------------------------------------------------------
+# Self-healing API (Module 7)
+# ---------------------------------------------------------------------------
+
+@app.get("/api/healing")
+async def healing():
+    """Self-healing needs a network to act on. The offline preview has none,
+    and the live executor (NetworkController on Mininet + Ryu REST) is not
+    built yet, so the viewer reports that plainly instead of pretending."""
+    raise HTTPException(
+        status_code=501,
+        detail=("self-healing is not available in the viewer yet: the offline preview has no network to act "
+                "on and the live executor needs the Linux lab. Run the simulated closed loop with "
+                "'PYTHONPATH=network/src python3 -m network.healing.evaluation --out data/module7'."),
+    )
