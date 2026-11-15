@@ -1,0 +1,19 @@
+# Device identities for Zero Trust (Module 5).
+#
+# Every host and server in enterprise.yaml must appear here. IP addresses
+# come from the topology; MAC addresses are the identities the devices are
+# expected to present (a live network must assign these MACs in Mininet).
+# Owners are role accounts, not people.
+#
+# base_trust: starting trust in [0, 1] before any behaviour is observed.
+# managed / patched: device posture; each missing item lowers the
+# effective base trust by `posture_penalty` (see zero_trust_policy.yaml).
+
+devices:
+  h1:        { role: admin,       owner: it-admin,       mac: "02:00:0a:00:01:0a", base_trust: 0.9, managed: true,  patched: true }
+  h2:        { role: employee,    owner: staff-01,       mac: "02:00:0a:00:01:0b", base_trust: 0.8, managed: true,  patched: true }
+  h3:        { role: employee,    owner: staff-02,       mac: "02:00:0a:00:01:0c", base_trust: 0.8, managed: true,  patched: true }
+  h4:        { role: contractor,  owner: contractor-01,  mac: "02:00:0a:00:02:0a", base_trust: 0.6, managed: false, patched: true }
+  h5:        { role: contractor,  owner: guest-01,       mac: "02:00:0a:00:02:0b", base_trust: 0.6, managed: false, patched: true }
+  srv-web-1: { role: web_server,  owner: svc-web,        mac: "02:00:0a:00:01:14", base_trust: 0.9, managed: true,  patched: true }
+  srv-db-1:  { role: db_server,   owner: svc-db,         mac: "02:00:0a:00:01:15", base_trust: 0.9, managed: true,  patched: true }
