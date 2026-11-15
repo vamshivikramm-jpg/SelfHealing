@@ -1,4 +1,4 @@
-"""Viewer v1.0 — Read-only enterprise network dashboard.
+"""Viewer v2.0 — enterprise network dashboard (Module 8).
 
 FastAPI backend that serves a read-only Cytoscape.js dashboard.
 Never modifies the network.
@@ -28,6 +28,17 @@ Environment:
   VIEWER_MODEL_DIR=dir          Module 4: run the registry's champion model
                                 for live failure prediction (needs numpy +
                                 scikit-learn in the viewer's environment)
+
+Module 8 — simulation mode (VIEWER_MODE=simulation):
+  Runs the full closed loop of Modules 2-7 (telemetry, prediction, Zero
+  Trust, decisions, self-healing) live on the redundant simulation
+  topology, and enables the operator controls (inject failures/attacks,
+  scripted demo, approve/reject decisions, autonomy level). Needs an
+  environment with the `mininet` Python package (imports only), numpy and
+  scikit-learn - e.g. the system python3. Everything shown is SIMULATED.
+  Outside simulation mode the viewer stays read-only (no login exists).
+  VIEWER_SIM_INTERVAL=2         simulation step (seconds)
+  VIEWER_SIM_PREDICTOR=0        skip training the startup predictor
 """
 
 from __future__ import annotations
@@ -39,9 +50,10 @@ from collections import Counter, deque
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -113,6 +125,64 @@ _DECISIONS = os.environ.get("VIEWER_DECISIONS", "") == "1"
 _decisions = None
 _decision_error = None
 _prediction_error = None
+_SIM_MODE = os.environ.get("VIEWER_MODE", "") == "simulation"
+_SIM_INTERVAL = float(os.environ.get("VIEWER_SIM_INTERVAL", "2"))
+_SIM_PREDICTOR = os.environ.get("VIEWER_SIM_PREDICTOR", "1") != "0"
+_runtime = None
+_sim_error = None
+
+
+class _SecurityView:
+    """Presents the runtime's Zero Trust engine like LiveSecuritySimulation."""
+
+    attacks = True
+
+    def __init__(self, runtime):
+        self._rt = runtime
+        self.engine = runtime.security
+
+    def status(self) -> dict:
+        return {**self.engine.status(), "running": self._rt.running, "simulated": True,
+                "synthetic_attacks": True, "interval_s": self._rt.interval_s}
+
+
+class _DecisionView:
+    """Presents the runtime's decision engine like LiveDecisions."""
+
+    def __init__(self, runtime):
+        self._rt = runtime
+        self.engine = runtime.decisions
+
+    def status(self) -> dict:
+        return {**self.engine.status(), "attached": True,
+                "inputs": {"prediction": self._rt.predictor is not None, "zero_trust": True}}
+
+
+def _start_simulation() -> bool:
+    """Simulation mode: build the runtime and point the viewer at it."""
+    global _runtime, _sim_error, _controller, _manager, _collector, _repository, _recorder
+    global _identities, _policy, _security, _decisions, _predictor
+    if _OFFLINE_MODE:
+        _sim_error = ("simulation mode needs the `mininet` Python package (imports only), numpy and "
+                      "scikit-learn; run the viewer with an environment that has them, e.g. the system python3")
+        return False
+    try:
+        from network.security.policy import ZeroTrustPolicy
+        from network.simulation.runtime import SimulationRuntime
+
+        _runtime = SimulationRuntime(str(_CONFIG_DIR), interval_s=_SIM_INTERVAL, use_predictor=_SIM_PREDICTOR)
+    except Exception as exc:  # noqa: BLE001 - reported by /api/health and /api/overview
+        _sim_error = f"{type(exc).__name__}: {exc}"
+        return False
+    _controller, _manager, _collector = _runtime.controller, _runtime.manager, _runtime.collector
+    _repository, _recorder = _runtime.repository, _runtime.recorder
+    _identities = _runtime.registry
+    _policy = ZeroTrustPolicy.from_file(_CONFIG_DIR / "zero_trust_policy.yaml")
+    _security = _SecurityView(_runtime)
+    _decisions = _DecisionView(_runtime)
+    _predictor = _runtime.predictor
+    _controller.event_bus.subscribe(_collect_event)
+    return True
 
 # High-frequency events that would flood the dashboard event log.
 _UNLOGGED_EVENTS = {"TELEMETRY_COLLECTED"}
@@ -122,6 +192,8 @@ def _ensure_singletons() -> None:
     global _controller, _manager, _collector, _repository, _recorder, _predictor, _prediction_error
     global _identities, _policy, _security, _security_error, _decisions, _decision_error
     if _controller is not None:
+        return
+    if _SIM_MODE and _start_simulation():
         return
 
     if not _OFFLINE_MODE:
@@ -206,22 +278,28 @@ def _collect_event(event) -> None:
 @asynccontextmanager
 async def _lifespan(_app):
     _ensure_singletons()
-    _collector.start()
-    if _security is not None:
-        _security.start()
+    if _runtime is not None:
+        _runtime.start()          # the runtime drives collection itself
+    else:
+        _collector.start()
+        if _security is not None:
+            _security.start()
     try:
         yield
     finally:
-        _collector.stop()
-        if _security is not None:
-            _security.stop()
+        if _runtime is not None:
+            _runtime.stop()
+        else:
+            _collector.stop()
+            if _security is not None:
+                _security.stop()
         if _recorder is not None:
             _recorder.detach()
         if _repository is not None:
             _repository.close()
 
 
-app = FastAPI(title="Enterprise Network Viewer", version="1.1.0", lifespan=_lifespan)
+app = FastAPI(title="Enterprise Network Viewer", version="2.0.0", lifespan=_lifespan)
 
 _STATIC_DIR = Path(__file__).resolve().parent / "static"
 app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
@@ -290,7 +368,10 @@ async def health():
     counts = _device_counts()
     return {
         "status": "running",
-        "module": "viewer v1.1",
+        "module": "viewer v2.0",
+        "mode": "simulation" if _runtime is not None else ("offline" if _OFFLINE_MODE else "live"),
+        "simulation_error": _sim_error,
+        "controls_enabled": _runtime is not None,
         "offline_mode": _OFFLINE_MODE,
         "network_simulated": _safe(lambda: _controller.simulated_running, False),
         "telemetry_simulated": _collector.simulated,
@@ -530,12 +611,220 @@ async def decisions(limit: int = 50):
 
 @app.get("/api/healing")
 async def healing():
-    """Self-healing needs a network to act on. The offline preview has none,
-    and the live executor (NetworkController on Mininet + Ryu REST) is not
-    built yet, so the viewer reports that plainly instead of pretending."""
-    raise HTTPException(
-        status_code=501,
-        detail=("self-healing is not available in the viewer yet: the offline preview has no network to act "
-                "on and the live executor needs the Linux lab. Run the simulated closed loop with "
-                "'PYTHONPATH=network/src python3 -m network.healing.evaluation --out data/module7'."),
-    )
+    """Self-healing state. Only the simulation mode has a network to act on;
+    the live executor (Mininet + Ryu REST) is not built yet."""
+    _ensure_singletons()
+    if _runtime is None:
+        raise HTTPException(
+            status_code=501,
+            detail=("self-healing runs only in simulation mode (VIEWER_MODE=simulation): the offline preview "
+                    "has no network to act on and the live executor needs the Linux lab"),
+        )
+    return {"simulated": True, "policy": _runtime.healing.policy.to_dict(), "stats": _runtime.healing.stats(),
+            "actions": list(reversed(_runtime.healing.history()))[:100]}
+
+
+# ---------------------------------------------------------------------------
+# Dashboard API (Module 8)
+# ---------------------------------------------------------------------------
+
+def _link_name(a: str, b: str) -> str:
+    x, y = sorted((a, b))
+    return f"{x}-{y}"
+
+
+def _overview() -> dict:
+    ts = datetime.now(timezone.utc).timestamp()
+    snap = _controller.topology_snapshot()
+    health = {k: r.to_dict() for k, r in _collector.health().items()}
+    preds = {}
+    if _predictor is not None:
+        preds = {p["target"]: p for p in _predictor.predictions()}
+    trust = {}
+    sec = _security.engine if _security is not None else None
+    if sec is not None and sec.last_ts is not None:
+        trust = sec.trust.snapshot(sec.last_ts)
+    blocks = set(getattr(sec, "manual_blocks", set())) if sec is not None else set()
+    rerouted = _runtime.rerouted() if _runtime is not None else []
+    rerouted_links = {l for r in rerouted for l in r["links"]}
+    roles = {i.name: i.role for i in _identities.all()} if _identities is not None else {}
+
+    nodes = []
+    for d in snap.get("devices", []):
+        h = health.get(f"node:{d['name']}", {})
+        m = h.get("metrics", {})
+        t = trust.get(d["name"], {})
+        nodes.append({
+            "name": d["name"], "kind": d["kind"], "ip": d.get("ip"), "role": roles.get(d["name"]),
+            "status": h.get("status", "UNKNOWN"), "reasons": h.get("reasons", []),
+            "cpu": m.get("node.cpu_pct"), "memory": m.get("node.memory_pct"),
+            "trust": t.get("trust"), "level": t.get("level"), "blocked": d["name"] in blocks,
+        })
+    links = []
+    for l in snap.get("links", []):
+        name = _link_name(l["src"], l["dst"])
+        h = health.get(f"link:{name}", {})
+        m = h.get("metrics", {})
+        p = preds.get(name, {})
+        links.append({
+            "name": name, "src": l["src"], "dst": l["dst"], "status": h.get("status", "UNKNOWN"),
+            "reasons": h.get("reasons", []), "latency_ms": m.get("link.latency_ms"),
+            "loss_pct": m.get("link.packet_loss_pct"), "utilization_pct": m.get("link.utilization_pct"),
+            "throughput_mbps": m.get("link.throughput_mbps"), "capacity_mbps": m.get("link.capacity_mbps"),
+            "prediction": p.get("score"), "predicted": bool(p.get("alert")), "rerouted": name in rerouted_links,
+        })
+    counts = Counter(r["status"] for r in health.values())
+    out = {
+        "time": ts,
+        "mode": "simulation" if _runtime is not None else ("offline" if _OFFLINE_MODE else "live"),
+        "simulated": True,
+        "status": _runtime.status() if _runtime is not None else {"mode": "offline" if _OFFLINE_MODE else "live"},
+        "topology": {"name": snap.get("name"), "nodes": nodes, "links": links},
+        "health_counts": dict(counts),
+        "thresholds": _collector.evaluator.thresholds.to_dict(),
+        "rerouted": rerouted,
+        "prediction": None if _predictor is None else {
+            "status": _predictor.status(),
+            "alerts": [p for p in _predictor.predictions() if p.get("alert")],
+        },
+        "security": None if sec is None else {
+            "threat": sec.last_threat.to_dict() if sec.last_threat else None,
+            "quarantined": sec.quarantined(), "blocked": sorted(blocks),
+            "trust": [{"device": k, **v} for k, v in sorted(trust.items())],
+            "events": sec.recent_events(25),
+        },
+        "decisions": None if _decisions is None else {
+            "status": _decisions.status(), "active": _decisions.engine.active_intents(),
+            "pending": _decisions.engine.pending(),
+        },
+        "healing": None if _runtime is None else {
+            "stats": _runtime.healing.stats(), "actions": list(reversed(_runtime.healing.history()))[:25],
+        },
+        "injections": _runtime.injections_view() if _runtime is not None else [],
+        "controls_enabled": _runtime is not None,
+    }
+    return out
+
+
+@app.get("/api/overview")
+async def overview():
+    """Everything the dashboard shows, in one call."""
+    _ensure_singletons()
+    return _overview()
+
+
+@app.get("/api/series")
+async def series(target: str, metrics: str = "", limit: int = 150):
+    """Recent values of several metrics of one link or node (for charts)."""
+    _ensure_singletons()
+    if limit < 1 or limit > 2000:
+        raise HTTPException(status_code=400, detail="limit must be between 1 and 2000")
+    names = [m for m in metrics.split(",") if m] or [
+        m.value for m in METRIC_SPECS if m.value.startswith("link." if "-" in target else "node.")
+        and METRIC_SPECS[m].kind.value != "counter"]
+    out = {}
+    for name in names:
+        metric = _parse_metric(name)
+        out[name] = [[x.timestamp, x.value] for x in _collector.store.series(metric, target, limit=limit)]
+    return {"target": target, "simulated": True, "series": out,
+            "thresholds": _collector.evaluator.thresholds.to_dict()}
+
+
+@app.get("/api/timeline")
+async def timeline(types: str = "", limit: int = 200):
+    """Combined event timeline (newest first), optionally filtered by event type."""
+    _ensure_singletons()
+    if limit < 1 or limit > 3000:
+        raise HTTPException(status_code=400, detail="limit must be between 1 and 3000")
+    wanted = {t for t in types.split(",") if t}
+    if _runtime is not None:
+        events = list(reversed(_runtime.events))
+    else:
+        with _lock:
+            events = [{"type": e["type"], "source": e["source"], "time": e["timestamp"], "result": e["result"],
+                       "data": e["data"]} for e in _event_log]
+    if wanted:
+        events = [e for e in events if e["type"] in wanted]
+    return {"events": events[:limit], "types": sorted({e["type"] for e in events})}
+
+
+# -- operator controls: simulation mode only ---------------------------------
+
+def _require_runtime():
+    _ensure_singletons()
+    if _runtime is None:
+        raise HTTPException(status_code=403,
+                            detail="controls are disabled: the viewer is read-only outside simulation mode")
+    return _runtime
+
+
+def _sim_call(fn, *args, **kwargs):
+    from network.simulation.runtime import RuntimeError_
+
+    try:
+        return fn(*args, **kwargs)
+    except RuntimeError_ as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except (KeyError, ValueError) as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+
+
+class FailureRequest(BaseModel):
+    kind: str
+    target: List[str]
+    duration_s: float = 60.0
+    physical: bool = False
+    magnitude: Optional[float] = None
+    warning_s: float = 0.0
+
+
+class AttackRequest(BaseModel):
+    kind: str
+    attacker: str
+    duration_s: float = 60.0
+
+
+class AutonomyRequest(BaseModel):
+    level: str
+
+
+@app.post("/api/sim/failure")
+async def sim_failure(req: FailureRequest):
+    rt = _require_runtime()
+    return _sim_call(rt.inject_failure, req.kind, req.target, req.duration_s, req.physical, req.magnitude,
+                     req.warning_s)
+
+
+@app.post("/api/sim/attack")
+async def sim_attack(req: AttackRequest):
+    rt = _require_runtime()
+    return _sim_call(rt.launch_attack, req.kind, req.attacker, req.duration_s)
+
+
+@app.post("/api/sim/demo")
+async def sim_demo():
+    rt = _require_runtime()
+    return {"scheduled": rt.start_demo()}
+
+
+@app.post("/api/sim/autonomy")
+async def sim_autonomy(req: AutonomyRequest):
+    rt = _require_runtime()
+    return {"autonomy": _sim_call(rt.set_autonomy, req.level)}
+
+
+@app.get("/api/sim/injections")
+async def sim_injections():
+    return {"injections": _require_runtime().injections_view()}
+
+
+@app.post("/api/decisions/{intent_id}/approve")
+async def approve_intent(intent_id: str):
+    rt = _require_runtime()
+    return _sim_call(rt.approve, intent_id)
+
+
+@app.post("/api/decisions/{intent_id}/reject")
+async def reject_intent(intent_id: str):
+    rt = _require_runtime()
+    return _sim_call(rt.reject, intent_id)
