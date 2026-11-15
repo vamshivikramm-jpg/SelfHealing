@@ -85,6 +85,9 @@ def test_operator_controls_and_validation(rt):
     rt.inject_failure("link", ["sw-a", "h1"], duration_s=30)
     with pytest.raises(RuntimeError_):
         rt.inject_failure("latency", ["sw-a", "h1"])     # already failing
+    with pytest.raises(RuntimeError_):
+        rt.inject_failure("switch", ["sw-a"])             # its link is already failing
+    rt.inject_failure("latency", ["sw-a", "h2"], duration_s=10)  # another link on the same switch is fine
     assert rt.set_autonomy("L1") == "L1" and rt.status()["autonomy"] == "L1"
     with pytest.raises(RuntimeError_):
         rt.set_autonomy("L7")

@@ -374,3 +374,16 @@ def test_live_decisions_follow_collector_and_security():
     assert live.status()["inputs"] == {"prediction": False, "zero_trust": True}
     live.detach()
     assert live.status()["attached"] is False
+
+
+def test_hard_fault_reroute_not_blocked_by_cooldown_and_predictor_threshold():
+    e = engine()
+    # proactive reroute, then it resolves -> cooldown starts
+    step(e, 0.0, predictions={"sw-a-sw-b": 0.8})
+    step(e, 5.0)
+    # the link really fails 10 s later: the reroute must not wait for the cooldown
+    r = step(e, 10.0, health_over={"link:sw-a-sw-b": {"status": "DOWN", "metrics": {}}})
+    assert ("REROUTE", "link:sw-a-sw-b") in types(r) and r.suppressed == 0
+    # a score above proactive_above but below the predictor's own alarm threshold is ignored
+    e2 = engine()
+    assert step(e2, 0.0, predictions={"sw-a-sw-b": 0.8}, prediction_threshold=0.95).new == []

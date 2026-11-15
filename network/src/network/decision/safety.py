@@ -8,9 +8,11 @@ Applied to candidate intents before anything is executed:
 2. **De-duplication**: an intent of the same type for the same target that
    is still active is not issued again.
 3. **Cooldown**: after an intent is resolved, the same type on the same
-   target is suppressed for ``cooldown_s`` (prevents flapping). RESTORE
-   and security actions are exempt: a dead link or an attacker is never
-   left alone because of a timer.
+   target is suppressed for ``cooldown_s`` (prevents flapping). RESTORE,
+   security actions and anything triggered by a hard fault (``params
+   ["fault"] == "DOWN"``) are exempt: a dead link or an attacker is never
+   left alone because of a timer (e.g. an earlier proactive reroute on the
+   same link must not delay the reroute when it actually fails).
 4. **Human gate** (autonomy level):
    L1 every action waits for approval; L3 nothing does; L2 waits for
    approval for ``always_approve`` types, security actions on protected
@@ -58,7 +60,7 @@ class SafetyGuard:
         self._resolved_at[(intent.type.value, intent.target)] = ts
 
     def in_cooldown(self, intent: Intent, ts: float) -> bool:
-        if intent.type in COOLDOWN_EXEMPT:
+        if intent.type in COOLDOWN_EXEMPT or intent.params.get("fault") == "DOWN":
             return False
         last = self._resolved_at.get((intent.type.value, intent.target))
         return last is not None and ts - last < self.policy.cooldown_s

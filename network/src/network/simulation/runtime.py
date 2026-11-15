@@ -188,7 +188,7 @@ class SimulationRuntime:
         if magnitude is None and kind not in NODE_KINDS + ("link",):
             magnitude = {"latency": 150.0, "packet_loss": 20.0, "bandwidth": 5.0}[kind]
         with self._lock:
-            if any(i["state"] in ("scheduled", "warning", "active") and set(i["target"]) & set(target)
+            if any(i["state"] in ("scheduled", "warning", "active") and self._overlaps(i["target"], target)
                    for i in self.injections if i["type"] == "failure"):
                 raise RuntimeError_(f"{'-'.join(target)} already has a failure in progress")
             now = self.now - self.started_at
@@ -256,6 +256,17 @@ class SimulationRuntime:
             return self.decisions.reject(intent_id).to_dict()
 
     # -- internals ----------------------------------------------------------------------
+
+    @staticmethod
+    def _overlaps(a, b) -> bool:
+        """Same link, same node, or a node and a link attached to it."""
+        a, b = tuple(a), tuple(b)
+        if len(a) == 2 and len(b) == 2:
+            return set(a) == set(b)
+        if len(a) == 1 and len(b) == 1:
+            return a == b
+        node, link = (a, b) if len(a) == 1 else (b, a)
+        return node[0] in link
 
     def _kind(self, name: str) -> Optional[str]:
         return next((d.kind for d in self.topology.devices if d.name == name), None)

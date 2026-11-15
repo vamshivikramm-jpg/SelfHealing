@@ -106,6 +106,8 @@ def network_candidates(graph: NetworkGraph, signals: Signals, assessments: Dict[
                        routes: Routes, policy) -> List[Intent]:
     intents: List[Intent] = []
     ts = signals.ts
+    # act proactively only on scores the predictor itself treats as an alarm
+    proactive_at = max(policy.proactive_above, signals.prediction_threshold or 0.0)
     for key, a in assessments.items():
         if a.risk < policy.act_above:
             continue
@@ -121,7 +123,7 @@ def network_candidates(graph: NetworkGraph, signals: Signals, assessments: Dict[
                 moves, stranded = reroute_moves(graph, routes, policy, avoid_nodes={a.target})
                 if moves:
                     intents.append(Intent(IntentType.REROUTE, key, f"route traffic around failed {a.target}",
-                                          a.risk, ts, {"moves": moves, "stranded": stranded},
+                                          a.risk, ts, {"moves": moves, "stranded": stranded, "fault": "DOWN"},
                                           _route_post(moves, node=a.target)))
             continue
 
@@ -135,7 +137,7 @@ def network_candidates(graph: NetworkGraph, signals: Signals, assessments: Dict[
             moves, stranded = reroute_moves(graph, routes, policy, avoid_links={link})
             if moves:
                 intents.append(Intent(IntentType.REROUTE, key, f"route traffic around failed link {link}",
-                                      a.risk, ts, {"moves": moves, "stranded": stranded},
+                                      a.risk, ts, {"moves": moves, "stranded": stranded, "fault": "DOWN"},
                                       _route_post(moves, link=link)))
         elif status == "DEGRADED" and "utilization" in reasons and not (
                 "latency" in reasons or "loss" in reasons or "drop" in reasons):
@@ -154,7 +156,7 @@ def network_candidates(graph: NetworkGraph, signals: Signals, assessments: Dict[
                                       {"moves": moves}, _route_post(moves, link=link)))
             else:
                 intents.append(_monitor(key, f"link {link} degraded ({reasons}); no better path", a, ts))
-        elif a.components["prediction"] >= policy.proactive_above:
+        elif a.components["prediction"] >= proactive_at:
             moves, _ = reroute_moves(graph, routes, policy, avoid_links={link})
             if moves:
                 intents.append(Intent(IntentType.REROUTE, key,

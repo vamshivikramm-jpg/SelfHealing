@@ -814,7 +814,7 @@ clock (3 runs × 3 h on the redundant topology; ~45 s).
 |---|---|
 | Correct-action rate | 100 % (54 incidents) |
 | Missed incidents | 0 % |
-| Unneeded actions per hour | 0.11 |
+| Unneeded actions per hour | 0.00 |
 | Proactive actions before a failure | 9 |
 | Decision latency p95 | 0.33 ms |
 
@@ -822,9 +822,11 @@ clock (3 runs × 3 h on the redundant topology; ~45 s).
 (`expected_intents`) that follow the same design as the strategies, so
 this mainly shows the engine behaves as designed on noisy end-to-end
 signals; it is not a judgement by an operator. A negative-control test
-confirms the metric does drop for a worse policy. The one unneeded action
-was a proactive reroute 10 s into a run, while the predictor's feature
-windows were still filling. Reroute convergence time needs Module 7.
+confirms the metric does drop for a worse policy. (An earlier version had
+0.11 unneeded actions/hour: a proactive reroute right after start-up while
+the predictor's windows were still filling. The predictor now waits for a
+full window, and proactive action uses the predictor's own alarm
+threshold.) Reroute convergence time needs Module 7.
 
 ### Viewer (read-only)
 
@@ -876,7 +878,7 @@ synthetic attacks. About 3 minutes.
 |---|---|---|---|---|---|---|---|
 | no_healing | 80 s | 0 % | 93.2 % | — | 0 | 0 | — |
 | restore_only | 26 s | 65 % | 40.6 % | 52 % | 5 | 0 | — |
-| full | 23 s | 71 % | 32.0 % | 77 % | 5 | 0 | 15 s (83 %) |
+| full | 23 s | 71 % | 32.0 % | 78 % | 5 | 0 | 15 s (83 %) |
 | full_no_prediction | 23 s | 71 % | 32.0 % | 71 % | 5 | 0 | 15 s (83 %) |
 | full_no_verify | 23 s | 71 % | 32.0 % | 100 % | 0 | **6** | 5 s (83 %) |
 
