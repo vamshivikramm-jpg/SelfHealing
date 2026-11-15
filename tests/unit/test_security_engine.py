@@ -126,3 +126,40 @@ def test_evaluation_cli(tmp_path, capsys):
     assert saved["summary"]["runs"] == 1
     assert (tmp_path / "report.md").exists()
     capsys.readouterr()
+
+
+# --------------------------------------------------------------------------
+# 5.8 Live simulation (used by the viewer)
+# --------------------------------------------------------------------------
+
+
+def test_live_simulation_ticks_and_attacks(registry, policy):
+    from network.security.live import LiveSecuritySimulation
+
+    clock = iter(float(i) for i in range(10_000_000))
+    sim = LiveSecuritySimulation(registry, policy, EventBus(), interval_s=5.0, attacks=True, seed=1,
+                                 clock=lambda: next(clock))
+    first = sim.plan.attacks[0]
+    for _ in range(int(first.end_s / 5) + 1):
+        sim.tick()
+    status = sim.status()
+    assert status["simulated"] and status["synthetic_attacks"] and not status["running"]
+    assert status["steps"] == int(first.end_s / 5) + 1 and status["enforcement_mismatches"] == 0
+    assert any(e["type"] == "SECURITY_ANOMALY" and e["data"]["subject"] == first.attacker
+               for e in sim.engine.recent_events(500))
+
+
+def test_live_simulation_thread(registry, policy):
+    import time
+
+    from network.security.live import LiveSecuritySimulation
+
+    sim = LiveSecuritySimulation(registry, policy, interval_s=0.01)
+    assert sim.plan.attacks == ()
+    sim.start()
+    sim.start()  # idempotent
+    deadline = time.time() + 2
+    while sim.engine.steps < 3 and time.time() < deadline:
+        time.sleep(0.01)
+    sim.stop()
+    assert sim.engine.steps >= 3 and not sim.running

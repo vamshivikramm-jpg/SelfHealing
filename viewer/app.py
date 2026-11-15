@@ -21,6 +21,9 @@ Environment:
   VIEWER_SIMULATE_NETWORK=1     offline only: simulate a running network
   VIEWER_TELEMETRY_INTERVAL=5   telemetry collection interval (seconds)
   VIEWER_DB_PATH=path.db        record telemetry history (off when unset)
+  VIEWER_SIMULATE_SECURITY=1    Module 5: run simulated traffic through the
+                                Zero Trust engine (live trust + events)
+  VIEWER_SECURITY_ATTACKS=1     ...and include synthetic attacks
   VIEWER_MODEL_DIR=dir          Module 4: run the registry's champion model
                                 for live failure prediction (needs numpy +
                                 scikit-learn in the viewer's environment)
@@ -98,6 +101,13 @@ _TELEMETRY_INTERVAL = float(os.environ.get("VIEWER_TELEMETRY_INTERVAL", "5"))
 _DB_PATH = os.environ.get("VIEWER_DB_PATH", "")
 _MODEL_DIR = os.environ.get("VIEWER_MODEL_DIR", "")
 _predictor = None
+_SIMULATE_SECURITY = os.environ.get("VIEWER_SIMULATE_SECURITY", "") == "1"
+_SECURITY_ATTACKS = os.environ.get("VIEWER_SECURITY_ATTACKS", "") == "1"
+_CONFIG_DIR = Path(_CONFIG_PATH).parent
+_identities = None
+_policy = None
+_security = None
+_security_error = None
 _prediction_error = None
 
 # High-frequency events that would flood the dashboard event log.
@@ -106,6 +116,7 @@ _UNLOGGED_EVENTS = {"TELEMETRY_COLLECTED"}
 
 def _ensure_singletons() -> None:
     global _controller, _manager, _collector, _repository, _recorder, _predictor, _prediction_error
+    global _identities, _policy, _security, _security_error
     if _controller is not None:
         return
 
@@ -130,6 +141,23 @@ def _ensure_singletons() -> None:
         _recorder = TelemetryRecorder(
             _repository, collector=_collector, event_bus=_controller.event_bus
         ).attach()
+    try:
+        if _OFFLINE_MODE:
+            from viewer._offline import load_security
+            IdentityRegistry, ZeroTrustPolicy, LiveSecuritySimulation = load_security()
+        else:
+            from network.security.identity import IdentityRegistry
+            from network.security.live import LiveSecuritySimulation
+            from network.security.policy import ZeroTrustPolicy
+        _identities = IdentityRegistry.from_config(_controller.config, _CONFIG_DIR / "identities.yaml")
+        _policy = ZeroTrustPolicy.from_file(_CONFIG_DIR / "zero_trust_policy.yaml")
+        if _SIMULATE_SECURITY:
+            _security = LiveSecuritySimulation(
+                _identities, _policy, _controller.event_bus,
+                interval_s=_TELEMETRY_INTERVAL, attacks=_SECURITY_ATTACKS,
+            )
+    except Exception as exc:  # noqa: BLE001 - reported by the security endpoints
+        _security_error = f"{type(exc).__name__}: {exc}"
     if _MODEL_DIR:
         try:
             if _OFFLINE_MODE:
@@ -160,10 +188,14 @@ def _collect_event(event) -> None:
 async def _lifespan(_app):
     _ensure_singletons()
     _collector.start()
+    if _security is not None:
+        _security.start()
     try:
         yield
     finally:
         _collector.stop()
+        if _security is not None:
+            _security.stop()
         if _recorder is not None:
             _recorder.detach()
         if _repository is not None:
@@ -400,3 +432,42 @@ async def predictions():
     if _predictor is None:
         raise HTTPException(status_code=503, detail=f"prediction unavailable: {_prediction_error}")
     return {"status": _predictor.status(), "predictions": _predictor.predictions()}
+
+
+# ---------------------------------------------------------------------------
+# Zero Trust API (Module 5)
+# ---------------------------------------------------------------------------
+
+@app.get("/api/policy")
+async def zero_trust_policy():
+    _ensure_singletons()
+    if _policy is None:
+        raise HTTPException(status_code=503, detail=f"Zero Trust config unavailable: {_security_error}")
+    return {
+        "policy": _policy.to_dict(),
+        "identities": [i.to_dict() for i in _identities.all()],
+    }
+
+
+def _require_security():
+    _ensure_singletons()
+    if _security is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Zero Trust simulation is off; start the viewer with VIEWER_SIMULATE_SECURITY=1"
+            + (f" ({_security_error})" if _security_error else ""),
+        )
+    return _security
+
+
+@app.get("/api/trust")
+async def trust_status():
+    return _require_security().status()
+
+
+@app.get("/api/security/events")
+async def security_events(limit: int = 100):
+    if limit < 1 or limit > 500:
+        raise HTTPException(status_code=400, detail="limit must be between 1 and 500")
+    sim = _require_security()
+    return {"simulated": True, "synthetic_attacks": sim.attacks, "events": sim.engine.recent_events(limit)}

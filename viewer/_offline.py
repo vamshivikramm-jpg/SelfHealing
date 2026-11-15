@@ -103,6 +103,24 @@ _summary_mod       = _load("network.analytics.summary",
                            "network/analytics/summary.py")
 
 
+def load_security():
+    """Load the Module 5 Zero Trust modules (standard library + PyYAML).
+
+    Returns ``(IdentityRegistry, ZeroTrustPolicy, LiveSecuritySimulation)``.
+    """
+    _stub_package("network.security")
+    identity = _load("network.security.identity", "network/security/identity.py")
+    _load("network.security.records", "network/security/records.py")
+    policy = _load("network.security.policy", "network/security/policy.py")
+    _load("network.security.trust", "network/security/trust.py")
+    _load("network.security.detectors", "network/security/detectors.py")
+    _load("network.security.enforcement", "network/security/enforcement.py")
+    _load("network.security.traffic", "network/security/traffic.py")
+    _load("network.security.engine", "network/security/engine.py")
+    live = _load("network.security.live", "network/security/live.py")
+    return identity.IdentityRegistry, policy.ZeroTrustPolicy, live.LiveSecuritySimulation
+
+
 def load_prediction():
     """Load the Module 4 live-prediction modules (needs numpy + scikit-learn).
 
