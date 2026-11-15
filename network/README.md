@@ -736,3 +736,99 @@ and contractors never leaving quarantine.
 `GET /api/policy` (rules + identities) is always on. Start with
 `VIEWER_SIMULATE_SECURITY=1` (add `VIEWER_SECURITY_ATTACKS=1` for
 synthetic attacks) for `GET /api/trust` and `GET /api/security/events`.
+
+## Decision Engine (Module 6)
+
+`network.decision` turns the signals of Modules 2, 4 and 5 into
+vendor-neutral actions ("intents"). It **decides only**: Module 7 will
+execute intents and check their post-conditions. Standard library +
+PyYAML.
+
+### Configuration: `config/decision_policy.yaml`
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `autonomy` | L2 | L1 everything needs approval; L2 reversible actions run automatically; L3 nothing needs approval |
+| `risk.weights` | prediction 0.30, trust 0.15, threat 0.15, fault 0.40 | Eq. 4 weights (must sum to 1) |
+| `risk.act_above` | 0.15 | network actions considered only at or above this risk |
+| `prediction.proactive_above` | 0.5 | prediction score that justifies acting before a failure |
+| `path_cost` | loss 1, latency 0.1, reliability 10 | Eq. 6 edge cost |
+| `safety` | cooldown 60 s, ≤ 2 quarantines, protected server/switch/router, ISOLATE always approved | safety checks |
+
+`act_above` was first proposed as 0.35; with these weights a DEGRADED
+link scores 0.20 and a predicted failure at the proactive level 0.15, so
+0.35 would only ever act on links that are already down.
+
+### Simulation-only redundant topology
+
+`config/enterprise-redundant.yaml` adds a direct `sw-a ↔ sw-b` link so
+there is somewhere to reroute. **Do not run it on Mininet yet**: the loop
+needs loop-aware forwarding in Ryu. On the normal tree topology the engine
+can only RESTORE, MONITOR and take security actions.
+
+### Combined risk (Eq. 4)
+
+`R = 0.30·prediction + 0.15·(1 − trust) + 0.15·threat + 0.40·fault` per
+link and device; a node takes its worst link's prediction, a link its
+least-trusted host/server; fault is 1.0 DOWN, 0.5 DEGRADED. Each
+assessment keeps its components.
+
+### Intents and strategies
+
+| Situation | Intents |
+|---|---|
+| link / switch / router down | RESTORE + REROUTE traffic that used it (if another path exists) |
+| host / server down | RESTORE |
+| link degraded (latency, loss, drops) | REROUTE to a cheaper path, else MONITOR |
+| link congested | LOAD_BALANCE onto other paths, else MONITOR |
+| failure predicted on a healthy link | proactive REROUTE, else MONITOR |
+| device quarantined by Zero Trust | QUARANTINE |
+| flood / volume anomaly | BLOCK |
+| identity spoofing | ISOLATE (always needs approval) |
+
+Each intent carries post-conditions (`link_up`, `node_up`,
+`route_avoids`, `utilization_below`, `access_blocked`) for Module 7.
+Strategies plan from the original routes, so a reroute stays in place as
+long as its link is degraded and fails back when it recovers.
+
+### Safety checks
+
+One action per target (RESTORE + REROUTE may coexist; security >
+restore > reroute > load balance > monitor), no duplicates while active,
+60 s cooldown after resolution (not for RESTORE or security actions), and
+the human gate: under L2, ISOLATE, security actions on servers/switches/
+routers and a third simultaneous quarantine wait for approval
+(`DecisionEngine.approve` / `reject`).
+
+### Evaluation (§8.4)
+
+```bash
+PYTHONPATH=network/src python3 -m network.decision.evaluation --out data/module6
+```
+
+Runs failures, telemetry, a z-score predictor trained on separate runs,
+Zero Trust with synthetic attacks and the decision engine on one virtual
+clock (3 runs × 3 h on the redundant topology; ~45 s).
+
+| Metric | Value |
+|---|---|
+| Correct-action rate | 100 % (54 incidents) |
+| Missed incidents | 0 % |
+| Unneeded actions per hour | 0.11 |
+| Proactive actions before a failure | 9 |
+| Decision latency p95 | 0.33 ms |
+
+**Caveat:** "correct" means agreement with written ground-truth rules
+(`expected_intents`) that follow the same design as the strategies, so
+this mainly shows the engine behaves as designed on noisy end-to-end
+signals; it is not a judgement by an operator. A negative-control test
+confirms the metric does drop for a worse policy. The one unneeded action
+was a proactive reroute 10 s into a run, while the predictor's feature
+windows were still filling. Reroute convergence time needs Module 7.
+
+### Viewer (read-only)
+
+`VIEWER_DECISIONS=1` enables `GET /api/risk` and `GET /api/decisions`
+(active intents, pending approvals, decision log). Combine with
+`VIEWER_SIMULATE_SECURITY=1` and `VIEWER_MODEL_DIR` to feed it Zero Trust
+and prediction signals.
