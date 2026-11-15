@@ -15,8 +15,11 @@ datasets and availability/MTTR summaries — all on simulated data.
 simulated runs with designed warning patterns, model registry and live
 early warning. **Module 5 (Zero Trust)**: device identities, per-request
 default-deny policy, dynamic trust scores, behaviour detectors and
-simulated enforcement, evaluated on synthetic attacks. No decision or
-healing logic yet. Inter-subnet routing is a later module.
+simulated enforcement, evaluated on synthetic attacks. **Module 6
+(decision engine)**: Eq. 4 risk, vendor-neutral intents, path planning,
+safety checks and a human approval gate, evaluated end to end in
+simulation. No self-healing execution yet (Module 7). Inter-subnet
+routing is a later module.
 
 ## Stack
 
@@ -35,7 +38,8 @@ healing logic yet. Inter-subnet routing is a later module.
 | Data management & analytics (SQLite, features, baselines, datasets) | `network/src/network/analytics/` | Module 3 — on simulated data |
 | Failure prediction (models, registry, live early warning) | `network/src/network/prediction/` | Module 4 — simulated data with synthetic warning patterns |
 | Zero Trust (identities, trust, policy, enforcement) | `network/src/network/security/` | Module 5 — simulated traffic, synthetic attacks; enforcement simulated |
-| Decision / Healing | — | later modules |
+| Decision engine (risk, intents, paths, safety) | `network/src/network/decision/` | Module 6 — decides only; evaluated in simulation |
+| Self-healing execution | — | Module 7 |
 
 ## Prerequisites
 

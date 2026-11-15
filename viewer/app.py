@@ -24,6 +24,7 @@ Environment:
   VIEWER_SIMULATE_SECURITY=1    Module 5: run simulated traffic through the
                                 Zero Trust engine (live trust + events)
   VIEWER_SECURITY_ATTACKS=1     ...and include synthetic attacks
+  VIEWER_DECISIONS=1            Module 6: run the decision engine on live signals
   VIEWER_MODEL_DIR=dir          Module 4: run the registry's champion model
                                 for live failure prediction (needs numpy +
                                 scikit-learn in the viewer's environment)
@@ -108,6 +109,9 @@ _identities = None
 _policy = None
 _security = None
 _security_error = None
+_DECISIONS = os.environ.get("VIEWER_DECISIONS", "") == "1"
+_decisions = None
+_decision_error = None
 _prediction_error = None
 
 # High-frequency events that would flood the dashboard event log.
@@ -116,7 +120,7 @@ _UNLOGGED_EVENTS = {"TELEMETRY_COLLECTED"}
 
 def _ensure_singletons() -> None:
     global _controller, _manager, _collector, _repository, _recorder, _predictor, _prediction_error
-    global _identities, _policy, _security, _security_error
+    global _identities, _policy, _security, _security_error, _decisions, _decision_error
     if _controller is not None:
         return
 
@@ -171,6 +175,21 @@ def _ensure_singletons() -> None:
             ).attach()
         except Exception as exc:  # noqa: BLE001 - reported by /api/predictions
             _prediction_error = f"{type(exc).__name__}: {exc}"
+    if _DECISIONS:
+        try:
+            if _OFFLINE_MODE:
+                from viewer._offline import load_decision
+                DecisionPolicy, LiveDecisions = load_decision()
+            else:
+                from network.decision.live import LiveDecisions
+                from network.decision.policy import DecisionPolicy
+            _decisions = LiveDecisions(
+                _controller.config, DecisionPolicy.from_file(_CONFIG_DIR / "decision_policy.yaml"),
+                _collector, _controller.event_bus, predictor=_predictor,
+                security=_security.engine if _security is not None else None,
+            ).attach()
+        except Exception as exc:  # noqa: BLE001 - reported by /api/decisions
+            _decision_error = f"{type(exc).__name__}: {exc}"
 
 
 def _collect_event(event) -> None:
@@ -471,3 +490,35 @@ async def security_events(limit: int = 100):
         raise HTTPException(status_code=400, detail="limit must be between 1 and 500")
     sim = _require_security()
     return {"simulated": True, "synthetic_attacks": sim.attacks, "events": sim.engine.recent_events(limit)}
+
+
+# ---------------------------------------------------------------------------
+# Decision API (Module 6) — read-only; needs VIEWER_DECISIONS=1
+# ---------------------------------------------------------------------------
+
+def _require_decisions():
+    _ensure_singletons()
+    if _decisions is None:
+        raise HTTPException(
+            status_code=404 if not _decision_error else 503,
+            detail=_decision_error or "decision engine is off; start the viewer with VIEWER_DECISIONS=1",
+        )
+    return _decisions
+
+
+@app.get("/api/risk")
+async def risk(top: int = 20):
+    if top < 1 or top > 200:
+        raise HTTPException(status_code=400, detail="top must be between 1 and 200")
+    d = _require_decisions()
+    return {"weights": d.engine.policy.weights.__dict__, "act_above": d.engine.policy.act_above,
+            "assessments": d.engine.risk_table(top)}
+
+
+@app.get("/api/decisions")
+async def decisions(limit: int = 50):
+    if limit < 1 or limit > 1000:
+        raise HTTPException(status_code=400, detail="limit must be between 1 and 1000")
+    d = _require_decisions()
+    return {"status": d.status(), "active": d.engine.active_intents(), "pending_approval": d.engine.pending(),
+            "log": list(d.engine.log)[:limit]}
