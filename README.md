@@ -21,7 +21,22 @@ safety checks and a human approval gate, evaluated end to end in
 simulation. **Module 7 (self-healing)**: executes decisions, verifies
 them against telemetry and traffic delivery, undoes/escalates, evaluated
 against baselines and ablations — all on a simulated network with a
-physical-fault model. Inter-subnet routing is a later module.
+physical-fault model. **Module 8 (dashboard)**: tabbed live dashboard
+with a simulation mode that runs the whole closed loop and lets you inject
+failures and attacks, approve decisions and change autonomy. Inter-subnet
+routing is a later module.
+
+### Dashboard
+
+```bash
+VIEWER_MODE=simulation python3 -m uvicorn viewer.app:app --host 127.0.0.1 --port 8000
+```
+
+Open http://127.0.0.1:8000 (startup takes ~10 s while a predictor is
+trained). Simulation mode needs the `mininet` Python package (imports
+only), numpy and scikit-learn — the macOS system `python3` used during
+development has them; the project `.venv` does not, and there the
+dashboard falls back to the read-only offline preview.
 
 ## Stack
 
@@ -42,6 +57,7 @@ physical-fault model. Inter-subnet routing is a later module.
 | Zero Trust (identities, trust, policy, enforcement) | `network/src/network/security/` | Module 5 — simulated traffic, synthetic attacks; enforcement simulated |
 | Decision engine (risk, intents, paths, safety) | `network/src/network/decision/` | Module 6 — decides only; evaluated in simulation |
 | Self-healing (execute, verify, undo, escalate) | `network/src/network/healing/` | Module 7 — simulated execution; live executor needs the Linux lab |
+| Dashboard + simulation runtime | `viewer/`, `network/src/network/simulation/runtime.py` | Module 8 — simulation mode with operator controls; read-only otherwise |
 
 ## Prerequisites
 

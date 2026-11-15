@@ -46,7 +46,8 @@ class LiveDecisions:
                 if e["type"] == "SECURITY_ANOMALY" and ts - e["ts"] <= self.collector.interval_s:
                     anomalies[e["data"]["subject"]].append(e["data"]["kind"])
         return Signals(ts=ts, health={k: r.to_dict() for k, r in self.collector.health().items()},
-                       predictions=predictions, trust=trust, threat=threat, anomalies=dict(anomalies))
+                       predictions=predictions, trust=trust, threat=threat, anomalies=dict(anomalies),
+                       prediction_threshold=self.predictor.threshold if self.predictor is not None else None)
 
     def on_collection(self, result) -> None:
         self.engine.step(self.signals(result.timestamp))

@@ -3,74 +3,152 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Enterprise Network Viewer</title>
+  <title>Self-Healing Network Dashboard</title>
   <link rel="stylesheet" href="/static/css/dashboard.css">
   <script src="https://unpkg.com/cytoscape@3.28.1/dist/cytoscape.min.js"></script>
 </head>
 <body>
 
-<!-- ─── Top Bar ─── -->
 <header id="topbar">
   <div class="topbar-left">
-    <span class="project-name">Enterprise Network</span>
-    <span class="version" id="version">v1.0.0</span>
+    <span class="project-name">Self-Healing Enterprise Network</span>
+    <span class="badge" id="modeBadge">—</span>
   </div>
-  <div class="topbar-center">
-    <span class="status-dot" id="statusDot"></span>
-    <span id="statusLabel">stopped</span>
-    <span class="sep">|</span>
-    <span>Controller:</span>
-    <span id="controllerInfo">—</span>
-  </div>
+  <div class="topbar-center" id="healthPills"></div>
   <div class="topbar-right">
+    <span id="autonomyBadge" class="muted"></span>
     <span id="clock"></span>
   </div>
 </header>
 
-<!-- ─── Offline Banner ─── -->
-<div id="offlineBanner" class="offline-banner" style="display:none">
-  Running in Offline Preview Mode (Mininet unavailable)
-</div>
+<div id="banner" class="banner" hidden></div>
 
-<!-- ─── Main Layout ─── -->
-<div id="layout">
+<nav id="tabs" role="tablist">
+  <button class="tab active" data-tab="overview" role="tab">Overview</button>
+  <button class="tab" data-tab="telemetry" role="tab">Telemetry</button>
+  <button class="tab" data-tab="prediction" role="tab">Predictions</button>
+  <button class="tab" data-tab="security" role="tab">Zero Trust</button>
+  <button class="tab" data-tab="healing" role="tab">Decisions &amp; Healing <span class="count" id="pendingCount" hidden></span></button>
+  <button class="tab" data-tab="timeline" role="tab">Timeline</button>
+  <button class="tab" data-tab="analytics" role="tab">Analytics</button>
+  <button class="tab control-only" data-tab="control" role="tab" hidden>Control</button>
+</nav>
 
-  <!-- ─── Center: Topology Graph ─── -->
-  <div id="center">
-    <div id="cy"></div>
-  </div>
-
-  <!-- ─── Right Sidebar ─── -->
-  <aside id="sidebar">
-    <section class="panel">
-      <h3>Network Summary</h3>
-      <table class="summary-table">
-        <tr><td>Routers</td><td id="cntRouters">0</td></tr>
-        <tr><td>Switches</td><td id="cntSwitches">0</td></tr>
-        <tr><td>Hosts</td><td id="cntHosts">0</td></tr>
-        <tr><td>Servers</td><td id="cntServers">0</td></tr>
-        <tr class="divider"><td colspan="2"></td></tr>
-        <tr><td>Active Failures</td><td id="cntFailures" class="fail-count">0</td></tr>
-        <tr><td>Recovered</td><td id="cntRecovered">0</td></tr>
-      </table>
-    </section>
-
-    <section class="panel" id="failurePanel">
-      <h3>Active Failures</h3>
-      <div id="failureList" class="scroll-list">
-        <p class="empty-msg">No active failures</p>
+<main>
+  <!-- Overview -->
+  <section class="view active" id="view-overview">
+    <div class="overview-grid">
+      <div class="card topo-card">
+        <div class="card-head">
+          <h3>Live topology</h3>
+          <div class="legend">
+            <span><i class="dot ok"></i>healthy</span><span><i class="dot warn"></i>degraded</span>
+            <span><i class="dot bad"></i>down</span><span><i class="dot reroute"></i>rerouted traffic</span>
+            <span><i class="dot predict"></i>failure predicted</span>
+          </div>
+        </div>
+        <div id="cy"></div>
       </div>
-    </section>
-  </aside>
+      <div class="side">
+        <div class="kpis" id="kpis"></div>
+        <div class="card"><h3>Active decisions</h3><div id="ovDecisions" class="list"></div></div>
+        <div class="card"><h3>Latest events</h3><div id="ovEvents" class="list"></div></div>
+      </div>
+    </div>
+  </section>
 
-</div>
+  <!-- Telemetry -->
+  <section class="view" id="view-telemetry">
+    <div class="toolbar">
+      <label>Target <select id="seriesTarget"></select></label>
+      <span class="muted" id="seriesNote"></span>
+    </div>
+    <div class="charts" id="charts"></div>
+  </section>
 
-<!-- ─── Bottom: Event Log ─── -->
-<footer id="bottom">
-  <h3>Live Event Log</h3>
-  <div id="eventLog" class="scroll-list"></div>
-</footer>
+  <!-- Predictions -->
+  <section class="view" id="view-prediction">
+    <div class="card"><h3>Failure prediction per link</h3><p class="muted" id="predInfo"></p>
+      <div id="predTable"></div></div>
+  </section>
 
+  <!-- Zero Trust -->
+  <section class="view" id="view-security">
+    <div class="two-col">
+      <div class="card"><h3>Device trust</h3><div id="trustBars"></div></div>
+      <div class="card"><h3>Threat index (Eq. 3)</h3><div id="threat"></div>
+        <h3 class="mt">Security events</h3><div id="secEvents" class="list tall"></div></div>
+    </div>
+  </section>
+
+  <!-- Decisions & healing -->
+  <section class="view" id="view-healing">
+    <div class="card" id="pendingCard"><h3>Waiting for approval</h3><div id="pending" class="list"></div></div>
+    <div class="two-col">
+      <div class="card"><h3>Active decisions</h3><div id="activeIntents"></div></div>
+      <div class="card"><h3>Self-healing</h3><div id="healStats" class="stats-row"></div><div id="healActions"></div></div>
+    </div>
+  </section>
+
+  <!-- Timeline -->
+  <section class="view" id="view-timeline">
+    <div class="toolbar" id="timelineFilters"></div>
+    <div class="card"><div id="timeline" class="list tall"></div></div>
+  </section>
+
+  <!-- Analytics -->
+  <section class="view" id="view-analytics">
+    <div class="toolbar"><label>Window <select id="anaWindow">
+      <option value="300">5 min</option><option value="900" selected>15 min</option>
+      <option value="3600">1 hour</option></select></label></div>
+    <div id="analytics"></div>
+  </section>
+
+  <!-- Control (simulation only) -->
+  <section class="view" id="view-control">
+    <p class="banner-inline">Controls act on the <b>simulated</b> network only. Real networks stay read-only.</p>
+    <div class="three-col">
+      <form class="card" id="failForm">
+        <h3>Inject failure</h3>
+        <label>Kind <select name="kind">
+          <option value="link">Link down</option><option value="switch">Switch down</option>
+          <option value="router">Router down</option><option value="latency">High latency</option>
+          <option value="packet_loss">Packet loss</option><option value="bandwidth">Bandwidth limit</option>
+        </select></label>
+        <label>Target <select name="target"></select></label>
+        <label>Duration (s) <input name="duration_s" type="number" min="5" max="3600" value="60"></label>
+        <label>Warning ramp first (s) <input name="warning_s" type="number" min="0" max="600" value="0"></label>
+        <label class="check"><input name="physical" type="checkbox"> Physical damage (software cannot fix)</label>
+        <button type="submit">Inject</button>
+      </form>
+      <form class="card" id="attackForm">
+        <h3>Launch attack</h3>
+        <label>Kind <select name="kind">
+          <option value="port_scan">Port scan</option><option value="brute_force">Brute force</option>
+          <option value="spoofing">Identity spoofing</option><option value="lateral_movement">Lateral movement</option>
+          <option value="flood">Flood</option></select></label>
+        <label>Attacker <select name="attacker"></select></label>
+        <label>Duration (s) <input name="duration_s" type="number" min="5" max="3600" value="60"></label>
+        <p class="muted small">Detectors need ~40 s of normal traffic after start-up before flood/volume detection works.</p>
+        <button type="submit">Launch</button>
+      </form>
+      <div class="card">
+        <h3>Autonomy</h3>
+        <div class="segmented" id="autonomy">
+          <button data-level="L1">L1 approve all</button><button data-level="L2">L2 reversible auto</button>
+          <button data-level="L3">L3 full auto</button>
+        </div>
+        <h3 class="mt">Scripted demo</h3>
+        <p class="muted small">Physical core-link cut, switch failure, predicted latency, flood and spoofing attacks over ~7 minutes.</p>
+        <button id="demoBtn">Run demo</button>
+        <div id="controlMsg" class="msg"></div>
+      </div>
+    </div>
+    <div class="card"><h3>Injected so far</h3><div id="injections"></div></div>
+  </section>
+</main>
+
+<div id="tooltip" class="tooltip" hidden></div>
 <script src="/static/js/dashboard.js"></script>
 </body>
 </html>

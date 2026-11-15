@@ -9,7 +9,9 @@ publishes events on the shared EventBus:
 - ``PREDICTION_CLEARED`` it fell back below the threshold
 
 Links that are already down are not scored (that is detection, which the
-health check already does). Every event and prediction carries the
+health check already does). Nothing is scored until the store holds a
+full longest feature window: partial windows look abnormal and caused
+false alarms right after start-up. Every event and prediction carries the
 model's provenance flags, so a model trained on simulated data is never
 presented as validated on a real network.
 
@@ -84,6 +86,13 @@ class OnlinePredictor:
         self._lock = threading.Lock()
         self._predictions: Dict[str, dict] = {}
         self._token: Optional[int] = None
+        self._first_ts: Optional[float] = None
+        self._last_ts: Optional[float] = None
+
+    @property
+    def warmed_up(self) -> bool:
+        return self._first_ts is not None and self._last_ts is not None and \
+            self._last_ts - self._first_ts >= self.extractor.windows_s[-1]
 
     @classmethod
     def from_registry(cls, registry, collector, event_bus=None, **kwargs) -> "OnlinePredictor":
@@ -112,6 +121,11 @@ class OnlinePredictor:
 
     def on_collection(self, result) -> None:
         ts = result.timestamp
+        if self._first_ts is None:
+            self._first_ts = ts
+        self._last_ts = ts
+        if not self.warmed_up:
+            return
         status = {s.target: s.value for s in result.samples if s.metric == Metric.LINK_STATUS}
         longest = self.extractor.windows_s[-1]
         step = self.extractor.step_s
@@ -171,6 +185,7 @@ class OnlinePredictor:
             "model": self.model_label,
             "threshold": self.threshold,
             "attached": self._token is not None,
+            "warmed_up": self.warmed_up,
             "step_s": self.extractor.step_s,
             "collector_interval_s": self.collector.interval_s,
             "step_matches_collector": abs(self.extractor.step_s - self.collector.interval_s) < 1e-9,
