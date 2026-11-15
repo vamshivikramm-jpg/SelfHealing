@@ -286,3 +286,52 @@ def test_engine_introspection():
     assert {i["type"] for i in e.active_intents()} == {"RESTORE", "REROUTE"}
     assert e.log[0]["event"] == "DECISION_MADE"
     assert e.status()["rerouted_demands"] > 0
+
+
+# --------------------------------------------------------------------------
+# 6.7 End-to-end evaluation (no predictor: fast, no numpy needed)
+# --------------------------------------------------------------------------
+
+
+def test_expected_intents_rules():
+    from network.decision.evaluation import expected_intents
+
+    g = NetworkGraph.from_topology(REDUNDANT)
+    base = g.baseline_routes()
+    core = {"kind": "link", "target": ["sw-a", "sw-b"], "affected": ["link:sw-a-sw-b"]}
+    assert expected_intents(core, base, g) == [{("RESTORE", "link:sw-a-sw-b")}, {("REROUTE", "link:sw-a-sw-b")}]
+    access = {"kind": "latency", "target": ["sw-a", "h1"], "affected": ["link:h1-sw-a"]}
+    assert expected_intents(access, base, g) == [{("MONITOR", "link:h1-sw-a")}]
+    bw = {"kind": "bandwidth", "target": ["sw-a", "sw-b"], "affected": ["link:sw-a-sw-b"]}
+    assert expected_intents(bw, base, g) == [{("LOAD_BALANCE", "link:sw-a-sw-b"), ("REROUTE", "link:sw-a-sw-b")}]
+    sw = {"kind": "switch", "target": ["sw-b"], "affected": ["node:sw-b"]}
+    assert expected_intents(sw, base, g) == [{("RESTORE", "node:sw-b")}]
+
+
+def test_evaluation_end_to_end(tmp_path):
+    from network.decision.evaluation import render_markdown, run_evaluation
+
+    report = run_evaluation(seeds=(5,), duration_s=5400, use_predictor=False, n_failures=5, n_attacks=2)
+    s = report["summary"]
+    assert report["simulated"] and report["synthetic"] and report["predictor"] is None
+    assert s["incidents"] == 7 and s["correct_action_rate"] >= 0.85
+    assert s["false_negative_rate"] == 0.0
+    assert s["decision_latency_ms_p95"] < 50
+    assert "written rules" in render_markdown(report)
+
+
+def test_evaluation_catches_bad_decisions(tmp_path):
+    """A policy that ignores degradation must score worse: the metric is not
+    rigged to always pass."""
+    import shutil
+
+    from network.decision.evaluation import run_evaluation
+
+    cfg = tmp_path / "cfg"
+    shutil.copytree(CONFIG, cfg)
+    text = (cfg / "decision_policy.yaml").read_text().replace("act_above: 0.15", "act_above: 0.45")
+    (cfg / "decision_policy.yaml").write_text(text)
+    good = run_evaluation(seeds=(5,), duration_s=5400, use_predictor=False, n_failures=5, n_attacks=2)
+    bad = run_evaluation(seeds=(5,), duration_s=5400, use_predictor=False, n_failures=5, n_attacks=2,
+                         config_dir=str(cfg))
+    assert bad["summary"]["correct_action_rate"] < good["summary"]["correct_action_rate"]
