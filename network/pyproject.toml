@@ -4,10 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "enterprise-network"
-version = "0.3.0"
-description = "Virtual enterprise network generator for the self-healing network project (Submodule 1.2)"
+version = "1.9.0"
+description = "AI-powered Zero Trust self-healing enterprise network (Modules 1-9)"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.9"  # tested on 3.9 (macOS system Python) and 3.11 (CI)
 dependencies = [
     "PyYAML>=6.0",
 ]
@@ -16,6 +16,8 @@ dependencies = [
 test = ["pytest>=8"]
 # Module 4 failure prediction (models, registry, live predictor)
 ml = ["numpy>=1.24", "scikit-learn>=1.3", "joblib>=1.3"]
+# Module 9 statistics (exact Wilcoxon p-values; a normal approximation is used without it)
+stats = ["scipy>=1.10"]
 
 [project.scripts]
 enterprise-net = "network.launcher:main"
