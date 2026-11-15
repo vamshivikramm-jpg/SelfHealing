@@ -13,8 +13,10 @@ SQLite history, preprocessing, features, baselines, labelled scenario
 datasets and availability/MTTR summaries — all on simulated data.
 **Module 4 (AI failure prediction)**: baselines and ML models compared on
 simulated runs with designed warning patterns, model registry and live
-early warning. No decision, healing or trust logic yet. Inter-subnet
-routing is a later module.
+early warning. **Module 5 (Zero Trust)**: device identities, per-request
+default-deny policy, dynamic trust scores, behaviour detectors and
+simulated enforcement, evaluated on synthetic attacks. No decision or
+healing logic yet. Inter-subnet routing is a later module.
 
 ## Stack
 
@@ -32,7 +34,8 @@ routing is a later module.
 | Read-only viewer + telemetry API | `viewer/` | basic; full dashboard is Module 8 |
 | Data management & analytics (SQLite, features, baselines, datasets) | `network/src/network/analytics/` | Module 3 — on simulated data |
 | Failure prediction (models, registry, live early warning) | `network/src/network/prediction/` | Module 4 — simulated data with synthetic warning patterns |
-| Decision / Healing / Trust | — | later modules |
+| Zero Trust (identities, trust, policy, enforcement) | `network/src/network/security/` | Module 5 — simulated traffic, synthetic attacks; enforcement simulated |
+| Decision / Healing | — | later modules |
 
 ## Prerequisites
 
