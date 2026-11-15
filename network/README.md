@@ -646,3 +646,93 @@ Environment caveats (checked on the development Mac):
   *live* mode, where the network is stopped unless started; every link
   then reads as down and is not scored. `VIEWER_SIMULATE_NETWORK` only
   applies in offline mode.
+
+## Zero Trust Security (Module 5)
+
+`network.security` verifies every request against identity, policy and
+current trust. Standard library + PyYAML, no Mininet.
+
+> **Traffic is simulated and attacks are synthetic.** Results show the
+> designed attack patterns are caught, not that real attackers would be.
+> Enforcement runs on an in-memory rule table; installing the rules on
+> Open vSwitch through Ryu needs the Linux lab and is untested.
+
+### Configuration
+
+- `config/identities.yaml` — every host/server: role, owner (a role
+  account), expected MAC, base trust, posture (`managed`, `patched`; each
+  missing item costs 0.1 base trust).
+- `config/zero_trust_policy.yaml` — default deny; rules
+  `role -> destination:port` with a `min_trust`; trust thresholds,
+  half-life and anomaly weights.
+
+| Rule | Who | To | Ports | Min trust |
+|---|---|---|---|---|
+| web-access | admin, employee, contractor | srv-web-1 | 80, 443 | 0.4 |
+| admin-ssh | admin | srv-web-1, srv-db-1 | 22 | 0.7 |
+| app-to-database | web_server | srv-db-1 | 5432 | 0.7 |
+
+### Per-request decision (in order)
+
+unknown device → identity mismatch (claimed IP/MAC not the sender's) →
+quarantined (gateway only) → no rule for the role (default deny) → trust
+below the rule's minimum → allow. Every decision carries a reason code.
+
+### Trust (research doc Eq. 2)
+
+`T = base − Σ w_j · magnitude_j · 0.5^(age / half_life)`, clamped to
+[0, 1]; half-life 300 s. Levels: QUARANTINED below 0.3, TRUSTED at 0.7+,
+RESTRICTED in between. A quarantined device is released once trust
+reaches 0.5, capped at 0.05 below its own base trust (otherwise a device
+starting at 0.5 could never be released).
+
+### Detectors
+
+| Anomaly | Weight | Fires on |
+|---|---|---|
+| fingerprint_mismatch | 0.5 | flow claims another device's IP/MAC |
+| auth_failures | 0.3 | ≥ 5 failed logins in 60 s |
+| port_scan | 0.4 | ≥ 10 distinct destination ports in 30 s |
+| policy_violation | 0.15 | requests the role may never make (not denials caused by low trust) |
+| volume_anomaly | 0.2 | packets far above the device's own learned normal |
+| flood | 0.4 | network traffic entropy drops and one big sender dominates |
+
+`ThreatIndex` reports the Eq. 3 components (H_flow, R_auth, F_anom) per
+step for Module 6.
+
+### Enforcement
+
+Table 0 binds each device's port to its own MAC/IP; table 1 holds
+quarantine drops, gateway exceptions, allow rules for devices whose trust
+meets each rule's minimum, and a default drop. Rules are recompiled every
+step; the evaluation checks the enforcer never disagrees with the policy.
+
+### Evaluation (5 runs × 3 h, 40 synthetic attacks)
+
+```bash
+PYTHONPATH=network/src python3 -m network.security.evaluation --out data/module5 --seeds 1,2,3,4,5
+```
+
+| Metric | Value |
+|---|---|
+| Detection AUROC (trust drop vs. attacking) | 0.940 |
+| False-accept rate (attack flows allowed) | 0.78 % |
+| False-reject rate (non-attacking devices) | 0.00 % |
+| Containment cost (attackers' own normal traffic denied) | 29.9 % |
+| Non-attacking devices quarantined | 0 |
+| Policy/enforcement disagreements | 0 |
+
+Every attack type was detected in its first 5 s step; 100 % of port-scan,
+brute-force, spoofing and lateral-movement flows and 98 % of flood flows
+were blocked. Not every attacker is quarantined (43–67 %): devices with
+high base trust can absorb one anomaly type, but their forbidden requests
+are still denied. Bugs found while evaluating and fixed: a trust "death
+spiral" (low-trust denials counted as violations), flood blame on normal
+traffic swings, contractors starting exactly at the web-access minimum,
+and contractors never leaving quarantine.
+
+### Viewer
+
+`GET /api/policy` (rules + identities) is always on. Start with
+`VIEWER_SIMULATE_SECURITY=1` (add `VIEWER_SECURITY_ATTACKS=1` for
+synthetic attacks) for `GET /api/trust` and `GET /api/security/events`.

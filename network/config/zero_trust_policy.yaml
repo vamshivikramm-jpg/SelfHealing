@@ -1,0 +1,47 @@
+# Zero Trust access policy (Module 5).
+#
+# Default deny: a request is allowed only if a rule below matches the
+# requester's role, the destination device and the port, AND the
+# requester's current trust is at least the rule's min_trust.
+# Identity is verified on every request: a source IP/MAC that does not
+# belong to the device on that switch port is always denied.
+
+default: deny
+
+trust:
+  quarantine_below: 0.3     # trust under this -> QUARANTINED (blocked except gateway)
+  release_above: 0.5        # a quarantined device is released only above this
+  trusted_at: 0.7           # trust at or above this -> TRUSTED, otherwise RESTRICTED
+  posture_penalty: 0.1      # base trust lost per missing posture item (managed, patched)
+  half_life_s: 300          # an anomaly's effect halves every 300 s (decay factor kappa)
+
+# Severity weight w_j of each anomaly type (research doc, Eq. 2).
+anomaly_weights:
+  fingerprint_mismatch: 0.5
+  auth_failures: 0.3
+  port_scan: 0.4
+  policy_violation: 0.15
+  volume_anomaly: 0.2
+  flood: 0.4
+
+quarantine:
+  allow_gateway: true       # quarantined devices may still reach their subnet gateway
+
+rules:
+  - name: web-access
+    from_roles: [admin, employee, contractor]
+    to: [srv-web-1]
+    ports: [80, 443]
+    min_trust: 0.4          # contractors start at 0.5 (0.6 minus unmanaged penalty)
+
+  - name: admin-ssh
+    from_roles: [admin]
+    to: [srv-web-1, srv-db-1]
+    ports: [22]
+    min_trust: 0.7
+
+  - name: app-to-database
+    from_roles: [web_server]
+    to: [srv-db-1]
+    ports: [5432]
+    min_trust: 0.7

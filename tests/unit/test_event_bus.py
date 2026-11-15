@@ -42,7 +42,9 @@ def test_event_type_values():
     assert EventType.HEALTH_CHANGED.value == "HEALTH_CHANGED"
     assert EventType.FAILURE_PREDICTED.value == "FAILURE_PREDICTED"
     assert EventType.PREDICTION_CLEARED.value == "PREDICTION_CLEARED"
-    assert len(EventType) == 18
+    for name in ("SECURITY_ANOMALY", "ACCESS_DENIED", "TRUST_CHANGED", "DEVICE_QUARANTINED", "DEVICE_RELEASED"):
+        assert EventType(name).value == name
+    assert len(EventType) == 23
 
 
 def test_event_defaults_and_to_dict():
