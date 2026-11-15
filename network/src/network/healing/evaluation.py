@@ -157,8 +157,10 @@ def score(result, security_plan, loop) -> dict:
                     and a["verified_at"] >= start - step]
         containment.append(None if not verified else max(0.0, min(verified) - start))
 
-    stretch = [len(m["new"]) / len(m["old"]) for i in loop.intents if i["type"] in ("REROUTE", "LOAD_BALANCE")
-               and i["status"] == "APPROVED" for m in i["params"].get("moves", [])]
+    # path stretch of reroutes that were actually executed (none without healing)
+    executed = [a.intent for a in loop.healing.actions.values()] if loop.healing else []
+    stretch = [len(m["new"]) / len(m["old"]) for i in executed if i["type"] in ("REROUTE", "LOAD_BALANCE")
+               for m in i["params"].get("moves", [])]
     return {"outages": outages, "healing": healing, "false_success_claims": false_claims,
             "attack_containment_s": containment, "hours": (result.end - result.start) / 3600.0,
             "path_stretch": (sum(stretch) / len(stretch)) if stretch else None}

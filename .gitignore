@@ -25,3 +25,6 @@ htmlcov/
 # Generated datasets and telemetry databases (Module 3)
 data/
 *.db
+
+# Experiment outputs (Module 9); curated results live in docs/
+results/
