@@ -1,0 +1,57 @@
+# Enterprise topology with a redundant core link (Module 6, SIMULATION ONLY).
+#
+# Same devices as enterprise.yaml plus a direct sw-a <-> sw-b link, so the
+# access switches have two routes to each other (direct, or via rtr-core).
+# Used to develop and test rerouting and load balancing in simulation.
+# Do NOT run it on Mininet yet: the loop needs loop-aware forwarding in
+# Ryu (the L2 learning switch would flood broadcasts around the loop).
+#
+# Original header: Enterprise topology configuration (Submodule 1.2)
+# Reference schema: see network/README.md. Validated at load time by
+# network.config.load_topology_config().
+
+name: enterprise-redundant
+version: "0.3.0"
+
+segments:
+  - id: hq
+    label: Headquarters
+    subnets:
+      - { id: subnet-a, cidr: 10.0.1.0/24, gateway: 10.0.1.1 }
+      - { id: subnet-b, cidr: 10.0.2.0/24, gateway: 10.0.2.1 }
+
+devices:
+  routers:
+    - name: rtr-core
+      role: core
+      datapath_id: "0000000000000001"
+      interfaces:
+        - { port: 1, name: eth1, subnet: subnet-a, ip: 10.0.1.1/24 }
+        - { port: 2, name: eth2, subnet: subnet-b, ip: 10.0.2.1/24 }
+
+  switches:
+    - { name: sw-a, role: access, datapath_id: "0000000000000011" }
+    - { name: sw-b, role: access, datapath_id: "0000000000000012" }
+
+  hosts:
+    - { name: h1, subnet: subnet-a, ip: 10.0.1.10/24, gateway: 10.0.1.1 }
+    - { name: h2, subnet: subnet-a, ip: 10.0.1.11/24, gateway: 10.0.1.1 }
+    - { name: h3, subnet: subnet-a, ip: 10.0.1.12/24, gateway: 10.0.1.1 }
+    - { name: h4, subnet: subnet-b, ip: 10.0.2.10/24, gateway: 10.0.2.1 }
+    - { name: h5, subnet: subnet-b, ip: 10.0.2.11/24, gateway: 10.0.2.1 }
+
+  servers:
+    - { name: srv-web-1, subnet: subnet-a, ip: 10.0.1.20/24, gateway: 10.0.1.1, services: [http, https] }
+    - { name: srv-db-1, subnet: subnet-a, ip: 10.0.1.21/24, gateway: 10.0.1.1, services: [postgres] }
+
+links:
+  - { src: rtr-core, dst: sw-a, src_port: 1, dst_port: 1 }
+  - { src: rtr-core, dst: sw-b, src_port: 2, dst_port: 1 }
+  - { src: sw-a, dst: h1 }
+  - { src: sw-a, dst: h2 }
+  - { src: sw-a, dst: h3 }
+  - { src: sw-a, dst: srv-web-1 }
+  - { src: sw-a, dst: srv-db-1 }
+  - { src: sw-b, dst: h4 }
+  - { src: sw-b, dst: h5 }
+  - { src: sw-a, dst: sw-b, src_port: 10, dst_port: 10 }

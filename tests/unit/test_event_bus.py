@@ -44,7 +44,9 @@ def test_event_type_values():
     assert EventType.PREDICTION_CLEARED.value == "PREDICTION_CLEARED"
     for name in ("SECURITY_ANOMALY", "ACCESS_DENIED", "TRUST_CHANGED", "DEVICE_QUARANTINED", "DEVICE_RELEASED"):
         assert EventType(name).value == name
-    assert len(EventType) == 23
+    for name in ("DECISION_MADE", "APPROVAL_REQUIRED", "INTENT_RESOLVED"):
+        assert EventType(name).value == name
+    assert len(EventType) == 26
 
 
 def test_event_defaults_and_to_dict():

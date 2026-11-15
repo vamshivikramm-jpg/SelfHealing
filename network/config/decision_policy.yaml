@@ -1,0 +1,34 @@
+# Decision engine policy (Module 6).
+
+# Autonomy (research doc §6):
+#   L1  every action waits for a person's approval
+#   L2  reversible actions run automatically; risky ones wait for approval
+#   L3  everything runs automatically (still logged)
+autonomy: L2
+
+# Combined risk, Eq. 4: R = a*prediction + b*(1 - trust) + c*threat + d*fault
+risk:
+  weights: { prediction: 0.30, trust: 0.15, threat: 0.15, fault: 0.40 }
+  # theta_decide: below this, no network action is considered. With the
+  # weights above, a DEGRADED link scores 0.40 * 0.5 = 0.20 and a healthy
+  # link predicted at the proactive threshold 0.30 * 0.5 = 0.15, so the
+  # threshold must be <= 0.15 for either to be acted on (0.35, the value
+  # first proposed, would only ever act on links that are already DOWN).
+  act_above: 0.15
+  fault_levels: { DOWN: 1.0, DEGRADED: 0.5 }
+
+prediction:
+  proactive_above: 0.5       # prediction score that justifies acting before a failure
+
+# Eq. 6 path cost: c(l) = loss*loss_pct + latency*latency_ms + reliability*(1 - rel), rel = 1 - p_failure
+path_cost: { loss: 1.0, latency: 0.1, reliability: 10.0 }
+
+# Traffic assumed between every client/server pair when planning paths (Mbps)
+demand_mbps: 10.0
+utilization_target_pct: 70.0  # load balancing aims to keep links under this
+
+safety:
+  cooldown_s: 60             # no repeat of the same action on the same target within this
+  max_quarantined: 2         # quarantining more devices than this at once needs approval
+  protected_kinds: [server, switch, router]   # security actions on these need approval
+  always_approve: [ISOLATE]  # action types that always need approval under L2
