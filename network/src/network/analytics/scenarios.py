@@ -37,8 +37,10 @@ from network.analytics.recorder import TelemetryRecorder
 from network.analytics.repository import TelemetryRepository
 from network.config import TopologyConfig, load_topology_config
 from network.control import NetworkController
+from network.control.exceptions import NetworkControlError
 from network.events import EventType
 from network.failure import FailureManager
+from network.failure.exceptions import FailureError
 from network.simulation.dataplane import SimulatedNetworkBuilder
 from network.telemetry.collector import TelemetryCollector
 from network.telemetry.health import HealthStatus
@@ -85,6 +87,7 @@ class PlannedFailure:
     duration_s: float
     magnitude: Optional[float] = None  # ms / % / Mbps for impairment kinds
     precursor: Optional[Precursor] = None
+    physical: bool = False  # Module 7: damage no software command can fix
 
     def __post_init__(self):
         if self.kind not in FAILURE_KINDS:
@@ -96,6 +99,8 @@ class PlannedFailure:
             raise ValueError("duration_s must be > 0")
         if self.kind not in NODE_KINDS + ("link",) and self.magnitude is None:
             raise ValueError(f"{self.kind} failure needs a magnitude")
+        if self.physical and self.kind not in NODE_KINDS + ("link",):
+            raise ValueError("only link, switch and router failures can be physical")
         if self.precursor is not None:
             if self.precursor.kind not in COMPATIBLE_PRECURSORS[self.kind]:
                 raise ValueError(f"{self.precursor.kind} precursor cannot precede a {self.kind} failure")
@@ -141,6 +146,7 @@ class FailureRecord:
     end: float
     precursor_start: Optional[float]
     precursor_kind: Optional[str]
+    physical: bool = False
     detected_at: Optional[float] = None   # first non-HEALTHY reading during the failure
     warned_at: Optional[float] = None     # first non-HEALTHY reading during the precursor
 
@@ -198,9 +204,15 @@ def generate_plan(
     precursor_duration_s: Tuple[float, float] = (60.0, 180.0),
     kinds: Sequence[str] = FAILURE_KINDS,
     precursor_peaks: Optional[Dict[str, float]] = None,
+    physical_probability: Optional[Dict[str, float]] = None,
 ) -> ScenarioPlan:
     """Random but reproducible plan: a healthy warm-up, then failures one
     after another (never overlapping, with healthy gaps between them).
+
+    ``physical_probability`` (Module 7), e.g. ``{"link": 0.5, "switch": 0.2}``:
+    chance that a failure of that kind is physical (no software fix). Drawn
+    from a separate random stream, so plans for a seed are otherwise
+    unchanged. Default: no physical failures.
 
     ``gap_s`` is the healthy time between one failure ending and the next
     one's warning ramp (or start). A ``(low, high)`` range draws a random
@@ -223,6 +235,8 @@ def generate_plan(
             return snap(rng.uniform(*gap_s))
         return float(gap_s)
 
+    physical_rng = random.Random(seed * 1_000_003 + 17)
+    physical_probability = dict(physical_probability or {})
     failures: List[PlannedFailure] = []
     cursor = warmup_s
     last_gap = 0.0
@@ -247,7 +261,8 @@ def generate_plan(
                                   peaks[p_kind], rng.choice(candidate_links))
         duration = snap(rng.uniform(*failure_duration_s))
         start = cursor + (precursor.duration_s if precursor else 0.0)
-        failures.append(PlannedFailure(kind, target, start, duration, magnitude, precursor))
+        physical = physical_rng.random() < physical_probability.get(kind, 0.0)
+        failures.append(PlannedFailure(kind, target, start, duration, magnitude, precursor, physical))
         last_gap = gap()
         cursor = start + duration + last_gap
     if cursor - last_gap > duration_s:
@@ -289,11 +304,12 @@ class ScenarioRunner:
         self.repository = repository or TelemetryRepository()
         self.start_time = start_time
         self.clock = _VirtualClock(start_time)
-        self.controller = NetworkController(builder=SimulatedNetworkBuilder(config=self.config),
-                                            logger=_quiet_logger("controller"))
+        self.builder = SimulatedNetworkBuilder(config=self.config)
+        self.controller = NetworkController(builder=self.builder, logger=_quiet_logger("controller"))
         self.manager = FailureManager(self.controller, logger=_quiet_logger("failures"))
         self.collector = TelemetryCollector(
-            [SimulatedSource(self.controller, seed=plan.seed if telemetry_seed is None else telemetry_seed)],
+            [SimulatedSource(self.controller, seed=plan.seed if telemetry_seed is None else telemetry_seed,
+                             physical=lambda: self.builder.net)],
             event_bus=self.controller.event_bus, interval_s=plan.step_s, clock=self.clock,
             logger=_quiet_logger("collector"),
         )
@@ -366,8 +382,32 @@ class ScenarioRunner:
             m.inject_packet_loss(*f.target, f.magnitude)
         else:
             m.limit_bandwidth(*f.target, f.magnitude)
+        if f.physical:
+            net = self.builder.net
+            if f.kind in NODE_KINDS:
+                net.break_node(f.target[0])
+            else:
+                net.break_link(*f.target)
 
     def _recover(self, f: PlannedFailure) -> None:
+        """End of the planned failure (the "technician" fixes it).
+
+        Physical damage is repaired first. If self-healing (Module 7) already
+        recovered the failure through the controller, there is nothing left
+        to recover and the resulting errors are ignored.
+        """
+        if f.physical:
+            net = self.builder.net
+            if f.kind in NODE_KINDS:
+                net.repair_node(f.target[0])
+            else:
+                net.repair_link(*f.target)
+        try:
+            self._recover_with_manager(f)
+        except (FailureError, NetworkControlError):
+            pass
+
+    def _recover_with_manager(self, f: PlannedFailure) -> None:
         m = self.manager
         if f.kind == "router":
             m.recover_router(f.target[0])
@@ -423,6 +463,6 @@ class ScenarioRunner:
             warned = self._first_unhealthy(affected, precursor_start, start - 1e-6)
         return FailureRecord(
             kind=f.kind, target=f.target, affected=affected, start=start, end=end,
-            precursor_start=precursor_start, precursor_kind=p.kind if p else None,
+            precursor_start=precursor_start, precursor_kind=p.kind if p else None, physical=f.physical,
             detected_at=self._first_unhealthy(affected, start, end), warned_at=warned,
         )

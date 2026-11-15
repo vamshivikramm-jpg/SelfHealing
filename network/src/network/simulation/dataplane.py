@@ -11,6 +11,13 @@ match the controller's current call, which differs from real Mininet
 (``OVSSwitch.start(controllers)`` requires it). That mismatch is a known
 Module 1 defect tracked for Module 2.0; this class does not hide it on a
 real network.
+
+Physical faults (Module 7): ``break_link`` / ``break_node`` model damage
+that no software command can fix (a cut cable, dead switch hardware).
+The controller may still *believe* such a link or node is up after
+reconnecting it; ``link_physically_up`` / ``node_physically_up`` report
+what is really working, and the simulated telemetry source reads those,
+so a "successful" command that changed nothing is visible in telemetry.
 """
 
 from __future__ import annotations
@@ -43,6 +50,8 @@ class SimulatedNet:
         self.controllers: list = []
         self.link_status: Dict[tuple, str] = {}
         self.impairments: Dict[str, dict] = {}
+        self.broken_links: set = set()
+        self.broken_nodes: set = set()
 
     @property
     def hosts(self) -> List[SimulatedNode]:
@@ -63,6 +72,28 @@ class SimulatedNet:
             self.impairments[key] = dict(params)
         else:
             self.impairments.pop(key, None)
+
+    # -- physical faults (Module 7) -------------------------------------------
+
+    def break_link(self, a: str, b: str) -> None:
+        self.broken_links.add(tuple(sorted((a, b))))
+
+    def repair_link(self, a: str, b: str) -> None:
+        self.broken_links.discard(tuple(sorted((a, b))))
+
+    def break_node(self, name: str) -> None:
+        self.broken_nodes.add(name)
+
+    def repair_node(self, name: str) -> None:
+        self.broken_nodes.discard(name)
+
+    def link_physically_up(self, a: str, b: str) -> bool:
+        key = tuple(sorted((a, b)))
+        return self.link_status.get(key, "up") != "down" and key not in self.broken_links
+
+    def node_physically_up(self, name: str) -> bool:
+        node = self._nodes.get(name)
+        return node is not None and node.running and name not in self.broken_nodes
 
 
 class SimulatedNetworkBuilder:
