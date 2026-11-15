@@ -904,3 +904,42 @@ Reading:
 `GET /api/healing` answers 501 with an explanation: the offline preview
 has no network to act on and the live executor does not exist yet. Use the
 evaluation CLI to run the closed loop.
+
+## Dashboard (Module 8)
+
+```bash
+VIEWER_MODE=simulation python3 -m uvicorn viewer.app:app --host 127.0.0.1 --port 8000
+```
+
+`SimulationRuntime` (`network/src/network/simulation/runtime.py`) runs the
+Modules 2–7 closed loop on the wall clock on the redundant simulation
+topology, with a z-score predictor trained at startup (~10 s). Needs the
+`mininet` Python package (imports only), numpy and scikit-learn; without
+them the viewer falls back to the read-only offline preview and says why.
+
+| Tab | Shows |
+|---|---|
+| Overview | live topology (health colours, link width by load, dashed down links, cyan rerouted links, purple glow = failure predicted, red ring = quarantined/blocked), KPIs, active decisions, latest events |
+| Telemetry | charts per link/device with health thresholds (click a topology element to open it) |
+| Predictions | failure score per link vs the model's alarm threshold |
+| Zero Trust | trust per device, Eq. 3 threat components, security events |
+| Decisions & Healing | pending approvals (Approve / Reject), active intents, healing actions with their latest verification check |
+| Timeline | combined, filterable events (repeated security events collapsed) |
+| Analytics | availability per link/device, outages, MTTR over a window |
+| Control | inject failures (physical, with a warning ramp), launch attacks, autonomy L1–L3, scripted ~7-minute demo |
+
+API additions: `GET /api/overview`, `/api/series`, `/api/timeline`,
+`/api/sim/injections`; `POST /api/sim/failure`, `/api/sim/attack`,
+`/api/sim/demo`, `/api/sim/autonomy`, `/api/decisions/{id}/approve|reject`.
+Controls answer 403 outside simulation mode: there is no login, so a
+real network is never changed from the dashboard. Bind to 127.0.0.1.
+
+Environment: `VIEWER_SIM_INTERVAL` (default 2 s), `VIEWER_SIM_PREDICTOR=0`
+to skip training. Charts are plain SVG; Cytoscape still loads from a CDN,
+so the first page load needs internet.
+
+Running the dashboard live surfaced bugs the batch evaluations could not:
+a cooldown that delayed a reroute after a real failure, predictor false
+alarms during start-up, proactive actions ignoring the model's own alarm
+threshold, and a too-broad "already failing" check. All fixed; Module 6
+unneeded actions went from 0.11/h to 0.
