@@ -13,6 +13,10 @@ Events published on the EventBus (stamped with ``ts``):
 ``SECURITY_ANOMALY`` (one per anomaly), ``ACCESS_DENIED`` (one per denied
 sender per step, with counts per reason), ``TRUST_CHANGED`` (level
 changes), ``DEVICE_QUARANTINED`` / ``DEVICE_RELEASED``.
+
+Manual blocks (Module 7): ``add_block`` / ``remove_block`` let the
+self-healing engine block a device regardless of its trust; a blocked
+device is enforced exactly like a quarantined one.
 """
 
 from __future__ import annotations
@@ -57,6 +61,32 @@ class ZeroTrustEngine:
         self.mismatches = 0
         self.last_threat: Optional[ThreatIndex] = None
         self.last_ts: Optional[float] = None
+        self.manual_blocks: set = set()
+
+    def add_block(self, subject: str) -> bool:
+        """Block a device's traffic until ``remove_block``; True if newly blocked."""
+        if self.registry.get(subject) is None:
+            raise KeyError(f"unknown device {subject!r}")
+        with self._lock:
+            if subject in self.manual_blocks:
+                return False
+            self.manual_blocks.add(subject)
+            self._apply_rules()
+            return True
+
+    def remove_block(self, subject: str) -> bool:
+        with self._lock:
+            if subject not in self.manual_blocks:
+                return False
+            self.manual_blocks.discard(subject)
+            self._apply_rules()
+            return True
+
+    def _apply_rules(self):
+        ts = self.last_ts if self.last_ts is not None else 0.0
+        trust_now = {s: self.trust.trust(s, ts) for s in self.registry.names()}
+        blocked = set(self.quarantined()) | self.manual_blocks
+        return self.enforcer.apply(compile_rules(self.policy, self.registry, trust_now, blocked))
 
     def quarantined(self) -> List[str]:
         return [s for s in self.registry.names() if self.trust.level(s) == TrustLevel.QUARANTINED]
@@ -65,7 +95,7 @@ class ZeroTrustEngine:
         with self._lock:
             result = StepResult(ts=ts)
             trust_now = {s: self.trust.trust(s, ts) for s in self.registry.names()}
-            quarantined = set(self.quarantined())
+            quarantined = set(self.quarantined()) | self.manual_blocks
             diff = self.enforcer.apply(compile_rules(self.policy, self.registry, trust_now, quarantined))
             result.rule_changes = len(diff["added"]) + len(diff["removed"])
 
@@ -133,6 +163,7 @@ class ZeroTrustEngine:
                 "last_ts": ts,
                 "enforcement_mismatches": self.mismatches,
                 "quarantined": self.quarantined(),
+                "manual_blocks": sorted(self.manual_blocks),
                 "threat": self.last_threat.to_dict() if self.last_threat else None,
                 "trust": self.trust.snapshot(ts) if ts is not None else None,
                 "rules": len(self.enforcer.rules),

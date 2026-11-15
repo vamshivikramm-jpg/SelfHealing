@@ -832,3 +832,73 @@ windows were still filling. Reroute convergence time needs Module 7.
 (active intents, pending approvals, decision log). Combine with
 `VIEWER_SIMULATE_SECURITY=1` and `VIEWER_MODEL_DIR` to feed it Zero Trust
 and prediction signals.
+
+## Self-Healing (Module 7)
+
+`network.healing` executes Module 6's intents, checks whether they really
+worked, and undoes or escalates them when they did not. **Execution is
+simulated**; a live executor (NetworkController on Mininet + Ryu REST)
+needs the Linux lab and the Module 2.0 fixes.
+
+### Fault model (why verification means something)
+
+Some failures are **physical** (`PlannedFailure.physical`): no software
+command fixes them (a cut cable, dead switch hardware). The simulated data
+plane tracks what really works (`link_physically_up`,
+`node_physically_up`) and the simulated telemetry reads that, so a
+"restore" command that returns success but changes nothing still shows
+the link down. `generate_plan(..., physical_probability={...})` sets the
+chance per kind; plans are otherwise unchanged.
+
+### Components
+
+| Part | Role |
+|---|---|
+| `ServiceModel` | installed route per client/server demand; delivered fraction from physical state and measured loss (user-visible view) |
+| `SimulatedExecutor` | RESTORE via FailureManager/controller; REROUTE/LOAD_BALANCE install routes; QUARANTINE/BLOCK/ISOLATE become Zero Trust manual blocks; undo for routes and blocks |
+| `Verifier` | `link_up`/`node_up` from telemetry; `route_avoids` = installed route avoids it **and** traffic is delivered; `utilization_below` from telemetry; `access_blocked` = a probe flow is dropped |
+| `HealingEngine` | execute → verify (2 consecutive passes within 3 collections) → undo + retry once → escalate a RESTORE / fail anything else; fail back when the problem is resolved (security blocks held 120 s) |
+| `ClosedLoop` | per collection: delivery → Zero Trust → decisions → healing |
+
+Events: `HEALING_STARTED`, `HEALING_VERIFIED`, `HEALING_FAILED`,
+`HEALING_ROLLED_BACK`, `ESCALATED`.
+
+### Evaluation (3 runs × 3 h on the redundant simulation topology)
+
+```bash
+PYTHONPATH=network/src python3 -m network.healing.evaluation --out data/module7
+```
+
+17 outages (link/switch/router failures), 6 of them physical; plus
+synthetic attacks. About 3 minutes.
+
+| Mode | MTTR | Healed before manual repair | User-visible loss | Success rate | Escalated | False success claims | Attack containment |
+|---|---|---|---|---|---|---|---|
+| no_healing | 80 s | 0 % | 93.2 % | — | 0 | 0 | — |
+| restore_only | 26 s | 65 % | 40.6 % | 52 % | 5 | 0 | — |
+| full | 23 s | 71 % | 32.0 % | 77 % | 5 | 0 | 15 s (83 %) |
+| full_no_prediction | 23 s | 71 % | 32.0 % | 71 % | 5 | 0 | 15 s (83 %) |
+| full_no_verify | 23 s | 71 % | 32.0 % | 100 % | 0 | **6** | 5 s (83 %) |
+
+Reading:
+
+- Every software-fixable outage was healed before its manual repair;
+  the 5 unhealed ones are physical switch/router failures that software
+  cannot fix and single-homed devices cannot route around. The physical
+  core-link cut was healed by rerouting.
+- Rerouting (full vs restore-only) cut user-visible loss further.
+- **Removing verification** reports 100 % success and hides all 6 failed
+  repairs: exactly the risk the brief warned about.
+- **Removing prediction** changed nothing here: simulated detection is
+  already within one 5 s collection, so reacting is as fast as predicting.
+  Prediction can only pay off when detection is slower (live telemetry).
+- Rollback rate was 0 %: no route change failed its checks in these runs;
+  the undo path is covered by unit tests.
+- Limits: link load telemetry is not route-aware; detection delay is 0 s
+  in simulation; reroute convergence on real switches is unmeasured.
+
+### Viewer
+
+`GET /api/healing` answers 501 with an explanation: the offline preview
+has no network to act on and the live executor does not exist yet. Use the
+evaluation CLI to run the closed loop.

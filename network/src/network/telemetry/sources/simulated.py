@@ -26,6 +26,11 @@ Modelling rules
 - Byte/packet/drop counters are cumulative; they reset to zero when a
   switch or router restarts, like real OpenFlow port counters.
 - Node CPU rises with the traffic through the node; memory drifts slowly.
+- Optional ``physical``: an object (or a zero-argument callable returning
+  one) with ``link_physically_up(a, b)`` and ``node_physically_up(name)``.
+  When given, a link/node must also be physically working to report up,
+  so telemetry shows what really works, not what the controller believes
+  (Module 7 fault model). Without it, behaviour is unchanged.
 """
 
 from __future__ import annotations
@@ -84,8 +89,10 @@ class SimulatedSource(TelemetrySource):
         seed: int = 0,
         profile: Optional[SimulationProfile] = None,
         name: str = "simulated",
+        physical=None,
     ):
         self._controller = controller
+        self._physical = physical
         self._rng = random.Random(seed)
         self._profile = profile or SimulationProfile()
         self.name = name
@@ -114,7 +121,11 @@ class SimulatedSource(TelemetrySource):
 
         running = bool(state.is_running)
         nodes = {name: node for name, node in sorted(state.nodes.items())}
-        online = {name: running and node.is_online for name, node in nodes.items()}
+        physical = self._physical() if callable(self._physical) else self._physical
+        online = {name: running and node.is_online
+                  and (physical is None or physical.node_physically_up(name))
+                  for name, node in nodes.items()}
+        self._current_physical = physical
         self._reset_counters_of_restarted_switches(nodes, online)
 
         samples: List[Sample] = []
@@ -150,11 +161,13 @@ class SimulatedSource(TelemetrySource):
         name = link.name
         labels = {"src": link.src, "dst": link.dst}
         counters = self._counters.setdefault(name, _LinkCounters())
+        physical = getattr(self, "_current_physical", None)
         up = (
             running
             and link.is_connected
             and online.get(link.src, False)
             and online.get(link.dst, False)
+            and (physical is None or physical.link_physically_up(link.src, link.dst))
         )
         capacity = float(impairment.get("bandwidth_mbps", p.line_rate_mbps))
 

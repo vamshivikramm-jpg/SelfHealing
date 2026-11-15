@@ -126,6 +126,9 @@ def network_candidates(graph: NetworkGraph, signals: Signals, assessments: Dict[
             continue
 
         link = a.target
+        ends = graph.endpoints(link)
+        if any((signals.health.get(f"node:{n}") or {}).get("status") == "DOWN" for n in ends):
+            continue  # the failed node's own intents (RESTORE / REROUTE) cover its links
         if status == "DOWN":
             intents.append(Intent(IntentType.RESTORE, key, f"link {link} is down", a.risk, ts,
                                   {"link": link}, [{"check": "link_up", "link": link}]))

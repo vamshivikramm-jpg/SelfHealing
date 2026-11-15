@@ -46,7 +46,9 @@ def test_event_type_values():
         assert EventType(name).value == name
     for name in ("DECISION_MADE", "APPROVAL_REQUIRED", "INTENT_RESOLVED"):
         assert EventType(name).value == name
-    assert len(EventType) == 26
+    for name in ("HEALING_STARTED", "HEALING_VERIFIED", "HEALING_FAILED", "HEALING_ROLLED_BACK", "ESCALATED"):
+        assert EventType(name).value == name
+    assert len(EventType) == 31
 
 
 def test_event_defaults_and_to_dict():
