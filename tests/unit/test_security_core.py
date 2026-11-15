@@ -135,6 +135,7 @@ def test_quarantine_hysteresis(registry, policy):
     t_05 = 300 * math.log2(0.65 / 0.3)
     engine.update_levels(t_05 + 1)
     assert engine.level("h2") == TrustLevel.RESTRICTED
+    assert engine.release_level("h2") == pytest.approx(0.5)
     snap = engine.snapshot(t_05 + 1)
     assert snap["h2"]["level"] == "RESTRICTED" and 0.5 < snap["h2"]["trust"] < 0.51
 

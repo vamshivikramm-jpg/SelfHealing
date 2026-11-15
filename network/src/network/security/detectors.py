@@ -10,7 +10,9 @@ magnitude in (0, 1]. Detectors never read ground-truth labels.
 | fingerprint_mismatch   | a flow claimed an IP/MAC that is not the sender's |
 | auth_failures          | >= 5 failed logins within 60 s |
 | port_scan              | >= 10 distinct destination ports within 30 s |
-| policy_violation       | requests denied by policy (no rule / low trust) |
+| policy_violation       | requests the device's role may never make (no rule),
+                           also while quarantined; NOT denials caused only by
+                           low trust, which would make trust spiral down |
 | volume_anomaly         | packet rate far above the subject's own learned normal |
 | flood                  | network-wide source entropy drops: one sender dominates
                            traffic (the H_flow term of Eq. 3) |
@@ -27,7 +29,7 @@ from collections import defaultdict, deque
 from dataclasses import dataclass
 from typing import Deque, Dict, List, Sequence, Tuple
 
-from network.security.policy import DENY_IDENTITY, DENY_NO_RULE, DENY_TRUST
+from network.security.policy import DENY_IDENTITY
 from network.security.records import Anomaly
 
 
@@ -98,7 +100,7 @@ class PolicyViolationDetector:
     def process(self, ts, decided, auth) -> List[Anomaly]:
         denied = defaultdict(int)
         for flow, decision in decided:
-            if decision.code in (DENY_NO_RULE, DENY_TRUST):
+            if decision.role_permits is False:
                 denied[flow.src] += 1
         return [Anomaly(ts, s, self.kind, _clip(n / self.full_at), f"{n} request(s) denied by policy")
                 for s, n in sorted(denied.items())]
@@ -159,8 +161,12 @@ class FloodDetector:
 
     kind = "flood"
 
-    def __init__(self, alpha: float = 0.05, drop_threshold: float = 0.3, warmup_steps: int = 20):
+    def __init__(self, alpha: float = 0.05, drop_threshold: float = 0.3, warmup_steps: int = 20,
+                 min_packets: int = 5000, min_share: float = 0.5):
         self.alpha, self.drop_threshold, self.warmup_steps = alpha, drop_threshold, warmup_steps
+        # a flood needs a sender that is both big and dominant, so a quiet
+        # step where few devices happen to talk is not blamed on anyone
+        self.min_packets, self.min_share = min_packets, min_share
         self.baseline = None
         self._steps = 0
         self.last_entropy = 1.0
@@ -176,8 +182,10 @@ class FloodDetector:
             self.baseline = entropy
         drop = max(0.0, self.baseline - entropy)
         self.last_drop = drop
-        if self._steps >= self.warmup_steps and drop > self.drop_threshold and packets:
-            top = max(packets, key=packets.get)
+        top = max(packets, key=packets.get) if packets else None
+        dominant = (top is not None and packets[top] >= self.min_packets
+                    and packets[top] / sum(packets.values()) >= self.min_share)
+        if self._steps >= self.warmup_steps and drop > self.drop_threshold and dominant:
             return [Anomaly(ts, top, self.kind, _clip(drop / 0.6),
                             f"traffic entropy {entropy:.2f} vs normal {self.baseline:.2f}; top sender {top}")]
         self.baseline += self.alpha * (entropy - self.baseline)

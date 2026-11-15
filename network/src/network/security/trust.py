@@ -14,7 +14,10 @@ Implements the research document's Eq. (2):
 Trust is clamped to [0, 1] and mapped to a level:
 
 - ``QUARANTINED`` below ``quarantine_below``; released only once trust
-  rises above ``release_above`` (hysteresis prevents flapping)
+  rises to the release level (hysteresis prevents flapping). The release
+  level is ``release_above``, capped at ``base - RELEASE_MARGIN`` for each
+  device: trust only approaches its base asymptotically, so a device whose
+  base is at or below ``release_above`` would otherwise never be released.
 - ``TRUSTED``     at or above ``trusted_at``
 - ``RESTRICTED``  in between
 """
@@ -28,6 +31,7 @@ from typing import Dict, Iterable, List, Optional, Tuple
 from network.security.records import Anomaly
 
 PRUNE_HALF_LIVES = 12  # contributions below 2^-12 of their weight are dropped
+RELEASE_MARGIN = 0.05
 
 
 class TrustLevel(str, Enum):
@@ -69,6 +73,10 @@ class TrustEngine:
                     penalty += self.weights.get(a.kind, 0.0) * a.magnitude * self._kappa ** (ts - a.ts)
         return max(0.0, min(1.0, self.base(subject) - penalty))
 
+    def release_level(self, subject: str) -> float:
+        s = self.settings
+        return max(s.quarantine_below, min(s.release_above, self.base(subject) - RELEASE_MARGIN))
+
     def level(self, subject: str) -> TrustLevel:
         with self._lock:
             return self._levels[subject]
@@ -84,7 +92,7 @@ class TrustEngine:
             for subject in self.registry.names():
                 value = self.trust(subject, ts)
                 previous = self._levels[subject]
-                current = self._next_level(previous, value)
+                current = self._next_level(previous, value, self.release_level(subject))
                 if current != previous:
                     self._levels[subject] = current
                     changes.append((subject, previous, current, value))
@@ -106,9 +114,8 @@ class TrustEngine:
             return TrustLevel.QUARANTINED
         return TrustLevel.TRUSTED if value >= s.trusted_at else TrustLevel.RESTRICTED
 
-    def _next_level(self, previous: TrustLevel, value: float) -> TrustLevel:
-        s = self.settings
-        if previous == TrustLevel.QUARANTINED and value < s.release_above:
+    def _next_level(self, previous: TrustLevel, value: float, release: float) -> TrustLevel:
+        if previous == TrustLevel.QUARANTINED and value < release:
             return TrustLevel.QUARANTINED
         return self._fresh_level(value)
 

@@ -69,6 +69,9 @@ class Decision:
     reason: str
     rule: Optional[str] = None
     trust: Optional[float] = None
+    # Does any rule let this device's role make this request at all?
+    # None when the identity check failed first.
+    role_permits: Optional[bool] = None
 
     def to_dict(self) -> dict:
         return dict(self.__dict__)
@@ -119,20 +122,23 @@ class ZeroTrustPolicy:
         mismatch = registry.verify(src, src_ip, src_mac)
         if mismatch:
             return Decision(False, DENY_IDENTITY, f"identity mismatch: {mismatch}", trust=trust)
+        rule = self.rule_for(identity.role, dst, port)
+        permits = rule is not None
         if quarantined:
             if dst == GATEWAY and self.allow_gateway_when_quarantined:
                 return Decision(True, ALLOW, "quarantined device may reach its gateway", "quarantine-gateway",
-                                trust)
-            return Decision(False, DENY_QUARANTINE, f"{src} is quarantined (trust {trust:.2f})", trust=trust)
-        rule = self.rule_for(identity.role, dst, port)
+                                trust, True)
+            return Decision(False, DENY_QUARANTINE, f"{src} is quarantined (trust {trust:.2f})", trust=trust,
+                            role_permits=permits)
         if rule is None:
             return Decision(False, DENY_NO_RULE,
-                            f"no rule lets role {identity.role!r} reach {dst}:{port} (default deny)", trust=trust)
+                            f"no rule lets role {identity.role!r} reach {dst}:{port} (default deny)", trust=trust,
+                            role_permits=False)
         if trust < rule.min_trust:
             return Decision(False, DENY_TRUST,
                             f"trust {trust:.2f} below {rule.min_trust:.2f} required by {rule.name}",
-                            rule.name, trust)
-        return Decision(True, ALLOW, f"allowed by {rule.name}", rule.name, trust)
+                            rule.name, trust, True)
+        return Decision(True, ALLOW, f"allowed by {rule.name}", rule.name, trust, True)
 
     def to_dict(self) -> dict:
         return {
