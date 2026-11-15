@@ -335,3 +335,42 @@ def test_evaluation_catches_bad_decisions(tmp_path):
     bad = run_evaluation(seeds=(5,), duration_s=5400, use_predictor=False, n_failures=5, n_attacks=2,
                          config_dir=str(cfg))
     assert bad["summary"]["correct_action_rate"] < good["summary"]["correct_action_rate"]
+
+
+# --------------------------------------------------------------------------
+# 6.8 Live decisions (viewer)
+# --------------------------------------------------------------------------
+
+
+def test_live_decisions_follow_collector_and_security():
+    from network.control import NetworkController
+    from network.decision.live import LiveDecisions
+    from network.failure import FailureManager
+    from network.security.engine import ZeroTrustEngine
+    from network.security.identity import IdentityRegistry
+    from network.security.policy import ZeroTrustPolicy
+    from network.security.records import FlowRecord
+    from network.simulation.dataplane import SimulatedNetworkBuilder
+    from network.telemetry import SimulatedSource, TelemetryCollector
+
+    controller = NetworkController(builder=SimulatedNetworkBuilder(config=REDUNDANT))
+    controller.start_network()
+    clock = iter(float(t) for t in range(1000, 100000, 5))
+    collector = TelemetryCollector([SimulatedSource(controller)], clock=lambda: next(clock))
+    registry = IdentityRegistry.from_config(REDUNDANT, CONFIG / "identities.yaml")
+    security = ZeroTrustEngine(registry, ZeroTrustPolicy.from_file(CONFIG / "zero_trust_policy.yaml"))
+    live = LiveDecisions(REDUNDANT, POLICY, collector, security=security).attach()
+    collector.collect_once()
+    assert live.engine.active_intents() == []
+    FailureManager(controller).disconnect_link("sw-a", "sw-b")
+    h1 = registry.get("h1")
+    security.step(1005.0, [FlowRecord(1005.0, "h5", h1.ip, h1.mac, "srv-db-1", 22)], [])
+    collector.collect_once()
+    active = {(i["type"], i["target"]) for i in live.engine.active_intents()}
+    # one security action per device: QUARANTINE (automatic) is kept over ISOLATE
+    # (equal priority, but would wait for approval)
+    assert {("RESTORE", "link:sw-a-sw-b"), ("REROUTE", "link:sw-a-sw-b"), ("QUARANTINE", "node:h5")} <= active
+    assert ("ISOLATE", "node:h5") not in active
+    assert live.status()["inputs"] == {"prediction": False, "zero_trust": True}
+    live.detach()
+    assert live.status()["attached"] is False

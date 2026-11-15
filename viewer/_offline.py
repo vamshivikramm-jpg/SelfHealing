@@ -121,6 +121,19 @@ def load_security():
     return identity.IdentityRegistry, policy.ZeroTrustPolicy, live.LiveSecuritySimulation
 
 
+def load_decision():
+    """Load the Module 6 decision modules (standard library + PyYAML).
+
+    Returns ``(DecisionPolicy, LiveDecisions)``.
+    """
+    _stub_package("network.decision")
+    policy = _load("network.decision.policy", "network/decision/policy.py")
+    for leaf in ("graph", "intents", "risk", "strategies", "safety", "engine"):
+        _load(f"network.decision.{leaf}", f"network/decision/{leaf}.py")
+    live = _load("network.decision.live", "network/decision/live.py")
+    return policy.DecisionPolicy, live.LiveDecisions
+
+
 def load_prediction():
     """Load the Module 4 live-prediction modules (needs numpy + scikit-learn).
 
