@@ -109,8 +109,12 @@ class NetworkGraph:
 
     def shortest_path(self, src: str, dst: str, weights: Tuple[float, float, float] = (1.0, 0.1, 10.0),
                       avoid_links: Set[str] = frozenset(), avoid_nodes: Set[str] = frozenset(),
-                      min_free_mbps: float = 0.0) -> Optional[Tuple[Path, float]]:
-        """Cheapest usable path from ``src`` to ``dst`` (or None)."""
+                      min_free_mbps: float = 0.0,
+                      edge_cost=None) -> Optional[Tuple[Path, float]]:
+        """Cheapest usable path from ``src`` to ``dst`` (or None).
+
+        ``edge_cost(edge)`` replaces the Eq. 6 cost (used by the random-reroute
+        baseline, which gives every usable edge a random cost)."""
         if src not in self.kinds or dst not in self.kinds:
             return None
         counter = itertools.count()
@@ -131,7 +135,8 @@ class NetworkGraph:
                     continue
                 if nxt != dst and self.kinds[nxt] not in TRANSIT_KINDS:
                     continue
-                new_cost = cost + self.cost(edge, *weights)
+                step = edge_cost(edge) if edge_cost is not None else self.cost(edge, *weights)
+                new_cost = cost + step
                 if new_cost < best.get(nxt, float("inf")):
                     best[nxt] = new_cost
                     heapq.heappush(queue, (new_cost, next(counter), nxt, path + (nxt,)))

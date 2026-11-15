@@ -39,6 +39,18 @@ def _weights(policy) -> Tuple[float, float, float]:
     return policy.cost_loss, policy.cost_latency, policy.cost_reliability
 
 
+def _edge_cost(policy, src: str, dst: str, avoid):
+    """None for Eq. 6 routing; for the random-reroute baseline a random but
+    stable cost per (pair, failure), so the choice does not flap."""
+    if getattr(policy, "route_selection", "cost") != "random":
+        return None
+    import random
+
+    rng = random.Random(f"{policy.random_seed}:{src}:{dst}:{sorted(avoid)}")
+    costs = {}
+    return lambda edge: costs.setdefault(edge.name, rng.random() + 1e-3)
+
+
 def _path_cost(graph: NetworkGraph, path: Path, policy) -> float:
     return sum(graph.cost(graph.edges[l], *_weights(policy)) for l in path_links(path))
 
@@ -55,12 +67,14 @@ def reroute_moves(graph: NetworkGraph, routes: Routes, policy, avoid_links=froze
         links = set(path_links(path))
         if not (links & set(avoid_links) or set(path[1:-1]) & set(avoid_nodes)):
             continue
-        found = graph.shortest_path(src, dst, _weights(policy), set(avoid_links), set(avoid_nodes))
+        found = graph.shortest_path(src, dst, _weights(policy), set(avoid_links), set(avoid_nodes),
+                                    edge_cost=_edge_cost(policy, src, dst, set(avoid_links) | set(avoid_nodes)))
         if found is None:
             stranded.append((src, dst))
             continue
         new_path, new_cost = found
-        if only_if_cheaper and new_cost >= _path_cost(graph, path, policy):
+        if only_if_cheaper and _edge_cost(policy, src, dst, ()) is None and \
+                new_cost >= _path_cost(graph, path, policy):
             stranded.append((src, dst))
             continue
         moves.append({"src": src, "dst": dst, "old": list(path), "new": list(new_path)})
@@ -75,7 +89,8 @@ def load_balance_moves(graph: NetworkGraph, routes: Routes, link: str, policy):
     for (src, dst), path in sorted(routes.items()):
         if link not in path_links(path):
             continue
-        found = graph.shortest_path(src, dst, _weights(policy), {link}, min_free_mbps=policy.demand_mbps)
+        found = graph.shortest_path(src, dst, _weights(policy), {link}, min_free_mbps=policy.demand_mbps,
+                                    edge_cost=_edge_cost(policy, src, dst, {link}))
         if found is None:
             continue
         new_path = found[0]

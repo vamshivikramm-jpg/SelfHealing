@@ -273,13 +273,16 @@ def aggregate(runs: List[dict]) -> dict:
 
 
 def run_evaluation(seeds: Sequence[int] = (1, 2, 3), duration_s: float = 10800.0, use_predictor: bool = True,
-                   config_dir: str = CONFIG_DIR, n_failures: int = 12, n_attacks: int = 6) -> dict:
-    topology = load_topology_config(os.path.join(config_dir, "enterprise-redundant.yaml"))
+                   config_dir: str = CONFIG_DIR, n_failures: int = 12, n_attacks: int = 6,
+                   topology_file: str = "enterprise-redundant.yaml", predictor=None) -> dict:
+    topology = load_topology_config(os.path.join(config_dir, topology_file))
     registry = IdentityRegistry.from_config(topology, os.path.join(config_dir, "identities.yaml"))
     zt_policy = ZeroTrustPolicy.from_file(os.path.join(config_dir, "zero_trust_policy.yaml"))
     decision_policy = DecisionPolicy.from_file(os.path.join(config_dir, "decision_policy.yaml"))
     model = threshold = None
-    if use_predictor:
+    if predictor is not None:
+        model, threshold = predictor
+    elif use_predictor:
         model, threshold = train_predictor(topology)
     runs = []
     for seed in seeds:
@@ -290,8 +293,8 @@ def run_evaluation(seeds: Sequence[int] = (1, 2, 3), duration_s: float = 10800.0
     return {
         "simulated": True,
         "synthetic": True,
-        "topology": "enterprise-redundant (simulation only)",
-        "predictor": {"model": "zscore", "threshold": threshold} if use_predictor else None,
+        "topology": f"{topology.name} (simulation only)",
+        "predictor": {"model": "zscore", "threshold": threshold} if model is not None else None,
         "policy": decision_policy.to_dict(),
         "warning": ("SIMULATED network, SYNTHETIC warning patterns and attacks, and expected actions from "
                     "written rules: the correct-action rate measures agreement with those rules."),
