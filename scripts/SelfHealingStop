@@ -14,6 +14,11 @@ REPO="$(cd "$(dirname "$(python3 -c 'import os,sys;print(os.path.realpath(sys.ar
 PORT="${SELFHEALING_PORT:-8000}"
 VM="${SELFHEALING_VM:-vamshi@172.16.120.137}"
 MODE="${1:-sim}"
+ON_LAB=0
+if [ "$(uname)" = "Linux" ] && [ -f "$REPO/docker-compose.yml" ] && command -v docker >/dev/null 2>&1; then
+  ON_LAB=1   # on the lab VM: "stop" means the live lab running here
+  case "$MODE" in sim|simulation|local|all) MODE=live ;; esac
+fi
 QUIET=0
 [ "${2:-}" = "--quiet" ] && QUIET=1
 say() { [ "$QUIET" = 1 ] || echo "$@"; }
@@ -39,6 +44,12 @@ stop_local() {
 }
 
 stop_live() {
+  if [ "$ON_LAB" = 1 ]; then
+    say "Stopping the live lab dashboard on this VM ..."
+    ( cd "$REPO" && make live-dashboard-stop >/dev/null 2>&1 )
+    say "Stopped (the containers keep running; the emulated network is cleaned up)."
+    return 0
+  fi
   say "Stopping the live lab dashboard on $VM ..."
   if ssh -o ConnectTimeout=8 "$VM" 'cd ~/SelfHealing && make live-dashboard-stop >/dev/null 2>&1'; then
     say "Stopped (the containers keep running; the emulated network is cleaned up)."

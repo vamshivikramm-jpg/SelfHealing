@@ -4,6 +4,9 @@
 #   SelfHealingStart            simulation dashboard on this computer (http://127.0.0.1:8000)
 #   SelfHealingStart live       live-lab dashboard on the VM (http://<vm>:8000)
 #
+# On the lab VM itself (Linux with Docker and the stack's docker-compose.yml)
+# both forms start the live lab directly, no ssh needed.
+#
 # Whatever already uses the port is stopped first, so you never have to
 # kill it by hand. The local dashboard runs in the background; its log is
 # in .run/dashboard.log inside the repository. Stop with SelfHealingStop.
@@ -21,8 +24,18 @@ REPO="$(cd "$(dirname "$(python3 -c 'import os,sys;print(os.path.realpath(sys.ar
 PORT="${SELFHEALING_PORT:-8000}"
 VM="${SELFHEALING_VM:-vamshi@172.16.120.137}"
 MODE="${1:-sim}"
+# on the lab VM: the live lab runs here
+ON_LAB=0
+if [ "$(uname)" = "Linux" ] && [ -f "$REPO/docker-compose.yml" ] && command -v docker >/dev/null 2>&1; then
+  ON_LAB=1
+  case "$MODE" in sim|simulation|local) MODE=live ;; esac
+fi
 
-open_url() { [ "${SELFHEALING_NO_OPEN:-0}" = "1" ] || open "$1" >/dev/null 2>&1 || true; }
+open_url() {
+  [ "${SELFHEALING_NO_OPEN:-0}" = "1" ] && return 0
+  if command -v open >/dev/null 2>&1; then open "$1" >/dev/null 2>&1 || true
+  elif [ -n "${DISPLAY:-}" ] && command -v xdg-open >/dev/null 2>&1; then xdg-open "$1" >/dev/null 2>&1 || true; fi
+}
 
 wait_for() {  # url, seconds
   local url="$1" i
@@ -52,11 +65,20 @@ case "$MODE" in
     fi
     ;;
   live|vm|lab)
-    host="${VM#*@}"
-    echo "Starting the live lab on $VM ..."
-    ssh -o ConnectTimeout=8 "$VM" 'cd ~/SelfHealing && docker compose up -d >/dev/null 2>&1 && make live-dashboard-stop >/dev/null 2>&1; make live-dashboard >/dev/null 2>&1' \
-      || { echo "Could not reach $VM over ssh. Is the VM running and awake?" >&2; exit 1; }
-    if wait_for "http://$host:8000" 90; then
+    if [ "$ON_LAB" = 1 ]; then
+      host="$(hostname -I 2>/dev/null | awk '{print $1}')"; host="${host:-127.0.0.1}"
+      echo "Starting the live lab on this VM ..."
+      ( cd "$REPO" && docker compose up -d >/dev/null 2>&1 && { make live-dashboard-stop >/dev/null 2>&1; make live-dashboard >/dev/null 2>&1; } ) \
+        || { echo "Could not start the containers: run 'docker compose up -d' in $REPO to see why." >&2; exit 1; }
+      probe="http://127.0.0.1:8000"
+    else
+      host="${VM#*@}"
+      echo "Starting the live lab on $VM ..."
+      ssh -o ConnectTimeout=8 "$VM" 'cd ~/SelfHealing && docker compose up -d >/dev/null 2>&1 && make live-dashboard-stop >/dev/null 2>&1; make live-dashboard >/dev/null 2>&1' \
+        || { echo "Could not reach $VM over ssh. Is the VM running and awake?" >&2; exit 1; }
+      probe="http://$host:8000"
+    fi
+    if wait_for "$probe" 90; then
       echo "Ready: http://$host:8000   (sign in: root / toor; failures and attacks open after ~2.5 min of learning)"
       echo "Stop with: SelfHealingStop live"
       open_url "http://$host:8000"
