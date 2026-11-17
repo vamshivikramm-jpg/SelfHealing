@@ -153,7 +153,7 @@ class NetworkController:
         node_state = self._require_node(node_name)
         if node_state.is_online:
             raise NodeAlreadyOnlineError(f"node {node_name!r} is already online")
-        self._net.get(node_name).start()
+        self._node_up(node_name)
         node_state.set_online()
         self._log(EventType.NODE_ENABLED, f"Node {node_name} Enabled")
         self._publish(EventType.NODE_ENABLED, {"node": node_name})
@@ -164,7 +164,7 @@ class NetworkController:
         node_state = self._require_node(node_name)
         if node_state.is_offline:
             raise NodeAlreadyOfflineError(f"node {node_name!r} is already offline")
-        self._net.get(node_name).stop()
+        self._node_down(node_name)
         node_state.set_offline()
         self._log(EventType.NODE_DISABLED, f"Node {node_name} Disabled")
         self._publish(EventType.NODE_DISABLED, {"node": node_name})
@@ -211,10 +211,11 @@ class NetworkController:
     # Traffic-control APIs exposed by the controller (the only layer that
     # talks to Mininet). Each set/clear validates the target link and the
     # parameter range, updates the controller's impairment state, and
-    # applies the change to the data plane. Applying is best-effort: the
-    # controller calls ``configLinkImpairment(key, params)`` on the
-    # network if it is available (mocked in unit tests / a TCLink-backed
-    # Mininet); on a stock Mininet link the state is still tracked.
+    # applies the change to the data plane. A network that offers
+    # ``configLinkImpairment(key, params)`` (the simulated data plane, unit
+    # test fakes) gets that call; a real Mininet network built with TCLink
+    # gets Linux ``tc`` (netem + htb) on both interfaces of the link, so
+    # latency is added in each direction (round trip grows by 2x).
 
     def set_link_latency(self, node1: str, node2: str, latency_ms) -> dict:
         """Set added one-way latency (ms) on a link. Raises ``ValueError``
@@ -377,6 +378,88 @@ class NetworkController:
         apply = getattr(self._net, "configLinkImpairment", None)
         if apply is not None:
             apply(key, params)
+            return
+        links_between = getattr(self._net, "linksBetween", None)
+        if links_between is None:
+            return  # state is still tracked
+        node1, node2 = self._split_key(key)
+        tc_params = {}
+        if params.get("latency_ms") is not None:
+            tc_params["delay"] = f"{params['latency_ms']:g}ms"
+        if params.get("loss_percent") is not None:
+            tc_params["loss"] = params["loss_percent"]
+        if params.get("bandwidth_mbps") is not None:
+            tc_params["bw"] = params["bandwidth_mbps"]
+        for link in links_between(self._net.get(node1), self._net.get(node2)):
+            for intf in (link.intf1, link.intf2):
+                # Start from a clean root qdisc so cleared settings vanish
+                # (TCIntf.config does nothing when called without params).
+                intf.tc("%s qdisc del dev %s root")
+                if tc_params:
+                    intf.config(**tc_params)
+
+    def _split_key(self, key: str):
+        """Find the two device names joined in a canonical link key (device
+        names may themselves contain '-', e.g. ``rtr-core-sw-a``)."""
+        names = {d.name for d in self.config.devices}
+        for name in names:
+            rest = key[len(name) + 1:]
+            if key.startswith(name + "-") and rest in names:
+                return name, rest
+        raise ValueError(f"cannot split link key {key!r}")
+
+    # ------------------------------------------------------------------
+    # Node up/down on the data plane
+    # ------------------------------------------------------------------
+    #
+    # Real Mininet: a switch/router is an OVS bridge, so it is stopped with
+    # ``stop(deleteIntfs=False)`` (keeps its veth interfaces) and restarted
+    # with ``start(controllers)``; a host is a network namespace with no
+    # start/stop, so its interfaces are brought down/up. Other networks
+    # (the simulated data plane, test fakes) get plain ``stop()``/``start()``.
+
+    def _node_down(self, node_name: str) -> None:
+        node = self._net.get(node_name)
+        if hasattr(node, "dpid"):
+            node.stop(deleteIntfs=False)
+        elif hasattr(node, "intfList") and hasattr(node, "cmd"):
+            for intf in node.intfList():
+                if intf.name != "lo":
+                    intf.ifconfig("down")
+        else:
+            node.stop()
+
+    def _node_up(self, node_name: str) -> None:
+        node = self._net.get(node_name)
+        if hasattr(node, "dpid"):
+            node.start(list(getattr(self._net, "controllers", [])))
+            self._reapply_link_state(node_name)
+        elif hasattr(node, "intfList") and hasattr(node, "cmd"):
+            for intf in node.intfList():
+                if intf.name == "lo":
+                    continue
+                link = getattr(intf, "link", None)
+                peer = None
+                if link is not None:
+                    peer = link.intf2.node.name if link.intf1 is intf else link.intf1.node.name
+                if peer is not None and self._link_is_down(node_name, peer):
+                    continue  # the link itself is disconnected; keep it down
+                intf.ifconfig("up")
+        else:
+            node.start()
+
+    def _link_is_down(self, node1: str, node2: str) -> bool:
+        try:
+            return self._require_link(node1, node2).is_disconnected
+        except Exception:  # noqa: BLE001 - not a configured link
+            return False
+
+    def _reapply_link_state(self, node_name: str) -> None:
+        """After an OVS bridge restarts its ports come back up; links an
+        operator disconnected must stay down."""
+        for link in self.config.links:
+            if node_name in (link.src, link.dst) and self._link_is_down(link.src, link.dst):
+                self._net.configLinkStatus(link.src, link.dst, "down")
 
     def _log(self, event_type: EventType, message: str) -> None:
         self._logger.info(

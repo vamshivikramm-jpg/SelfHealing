@@ -2,7 +2,7 @@
 
 Submodule 1.4D. Each Scenario is a thin wrapper around FailureManager
 that orchestrates a single failure lifecycle: inject → recover.
-Scenarios track their own execution state (IDLE → RESTORED) and expose
+Scenarios track their own execution state (IDLE → ACTIVE → RESTORED) and expose
 execute(), restore(), status() and summary().
 """
 
@@ -16,8 +16,9 @@ from network.failure.failure_manager import FailureManager
 
 
 class ScenarioState(str, Enum):
-    IDLE = "IDLE"
-    RESTORED = "RESTORED"
+    IDLE = "IDLE"          # created, not executed yet
+    ACTIVE = "ACTIVE"      # failure injected
+    RESTORED = "RESTORED"  # failure recovered; the scenario is finished
 
 
 class Scenario:
@@ -38,18 +39,18 @@ class Scenario:
             )
         self._start_time = datetime.now(timezone.utc)
         self._failure = self._inject()
-        self._state = ScenarioState.RESTORED
+        self._state = ScenarioState.ACTIVE
         return self.summary()
 
     def restore(self) -> dict:
-        if self._state != ScenarioState.RESTORED:
+        if self._state != ScenarioState.ACTIVE:
             raise RuntimeError(
                 f"scenario {type(self).__name__} cannot be restored "
                 f"from current state: {self._state.value}"
             )
         self._recover()
         self._failure = None
-        self._state = ScenarioState.IDLE
+        self._state = ScenarioState.RESTORED
         self._completed = True
         return self.summary()
 
