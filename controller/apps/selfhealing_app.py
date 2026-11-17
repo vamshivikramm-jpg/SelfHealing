@@ -297,6 +297,13 @@ class SelfHealingApp(app_manager.RyuApp):
             for port in self.state.edge_ports(dpid, self.ports.get(dpid, {})):
                 self._packet_out(dp, port, req.data)
 
+    @set_ev_cls(ofp_event.EventOFPErrorMsg, [CONFIG_DISPATCHER, MAIN_DISPATCHER])
+    def _error(self, ev):
+        msg = ev.msg
+        self.logger.warning("switch %s rejected a message: type=%s code=%s data=%s",
+                            self.state.topo.name_of.get(msg.datapath.id, hex(msg.datapath.id)),
+                            msg.type, msg.code, msg.data[:64].hex() if msg.data else "")
+
     # ------------------------------------------------------------------
     # Statistics
     # ------------------------------------------------------------------
