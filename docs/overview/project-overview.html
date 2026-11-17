@@ -52,12 +52,14 @@
   <div class="meta">
     Final-year major project · Modules 1–9<br>
     Repository: github.com/vamshivikramm-jpg/SelfHealing<br>
-    Status: all nine modules implemented and evaluated <b>in simulation</b>; live-network validation is the next step.
+    Status: all nine modules implemented and evaluated <b>in simulation</b>; Module 1 verified on a real emulated
+    network (Linux VM); Modules 2–8 on the real network are the next step.
   </div>
   <div class="note" style="margin-top:28pt">
     <b>One thing to remember while reading:</b> every result in this document comes from a <b>simulated</b> network
     that runs in Python on a laptop. Failures, early-warning patterns and attacks were <b>designed by us</b>.
-    The real emulated network (Mininet + Open vSwitch + Ryu) needs Linux and has not been run yet.
+    The real emulated network (Mininet + Open vSwitch + Ryu) now runs on a Linux VM for Module 1 only;
+    Modules 2–8 have not yet been run on it.
   </div>
   <h2 style="margin-top:22pt">Contents</h2>
   <ol class="toc">
@@ -423,7 +425,7 @@ that an attacking device is ranked above a normal one.</p></div>
 <h2>Process</h2>
 <ol>
   <li><b>Inspection first.</b> We reviewed the existing code (Module 1), ran its tests, and listed what really worked versus what was only documented.</li>
-  <li><b>One module at a time,</b> each on its own git branch, ending in a reviewed pull request that was merged into <code>main</code> (8 pull requests).</li>
+  <li><b>One module at a time,</b> each on its own git branch, ending in a reviewed pull request that was merged into <code>main</code> (9 pull requests so far).</li>
   <li><b>Plan → approve → build.</b> Each module started with a written plan and the design choices that needed the team's approval.</li>
   <li><b>Tests with every change.</b> 469 automated tests; every commit kept them passing. Since Module 9, GitHub Actions runs them automatically on Python 3.9 and 3.11.</li>
   <li><b>Evaluate, don't assume.</b> Each module ends with an evaluation command that produces numbers; Module 9 repeats them 10 times with statistics.</li>
@@ -433,7 +435,9 @@ that an attacking device is ranked above a normal one.</p></div>
 <h2>Why simulation first</h2>
 <p>The real emulated network (Mininet + Open vSwitch) only runs on Linux, and development happened on a Mac. Rather than
 wait, we built a faithful <b>simulated data plane</b> behind the same interfaces, so every module could be built and
-tested now and switched to the real network later with minimal changes.</p>
+tested now and switched to the real network later with minimal changes. When the Linux VM came up, the first live run
+of Module 1 found four problems no simulation could (container build, Ryu installation, two test bugs); all were fixed
+and 221 tests now pass on the real network.</p>
 
 <h2>Problems we found and fixed along the way</h2>
 <table>
@@ -477,7 +481,8 @@ full details in <code>docs/results.md</code>.</p>
 <h1>8. Limitations and next steps</h1>
 <h2>Be clear about these in the report and presentation</h2>
 <ul>
-  <li><b>Simulated network.</b> No result has been measured on Mininet/Open vSwitch or real hardware.</li>
+  <li><b>Simulated network.</b> Only Module 1 (topology, Ryu forwarding, connectivity) is verified on the real emulated
+      network; every result in Section 7 comes from the simulation.</li>
   <li><b>Designed data.</b> Failures, warning patterns and attacks were created by us; models learn what we built in.</li>
   <li><b>Rules we wrote.</b> "Correct decisions" means agreement with our own rules.</li>
   <li><b>Simplifications.</b> Instant detection, traffic load that does not follow routes, failures that never overlap, a small main topology.</li>
@@ -485,7 +490,7 @@ full details in <code>docs/results.md</code>.</p>
 
 <h2>Next steps (in order)</h2>
 <ol>
-  <li><b>Set up the Linux VM</b> (Ubuntu Server 24.04 in UTM) and run the real network — steps in <code>docs/deployment.md</code>.</li>
+  <li><s>Set up the Linux VM and run the real network</s> — <b>done</b>: Module 1 runs live, 221 tests pass (<code>make net-test</code>).</li>
   <li><b>Fix the known real-network gaps:</b> re-enabling devices, applying latency/loss/bandwidth for real (TCLink), scenario state names.</li>
   <li><b>Live telemetry:</b> read OpenFlow port statistics from Ryu and run ping/iperf probes.</li>
   <li><b>Live execution:</b> send healing and Zero Trust rules to the switches through Ryu.</li>
