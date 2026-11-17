@@ -57,4 +57,4 @@ NET_UNIT = tests/unit/test_topology.py tests/unit/test_network_control.py tests/
 
 net-test:
 	docker compose up -d
-	$(NET_EXEC) bash -c "cd /workspace && python3 -m pytest $(NET_UNIT) tests/integration -v -p no:cacheprovider"
+	$(NET_EXEC) bash -c "cd /workspace && PYTHONPATH=/workspace/network/src python3 -m pytest $(NET_UNIT) tests/integration -v -p no:cacheprovider"
