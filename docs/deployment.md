@@ -135,7 +135,7 @@ real network:
 | `LiveExecutor` | reroute = pin both directions in Ryu; quarantine/block = drop rules for MAC and IP; undo restores pins / removes rules; restore uses NetworkController/FailureManager |
 | `LiveVerifier` | `access_blocked` = a real ping from the device gets no answer |
 
-`tests/integration/test_live_backends.py` (7 tests) checks on the redundant
+`tests/integration/test_telemetry_healing_live.py` (7 tests) checks on the redundant
 topology: clean measurements on a healthy network; 50 ms impairment measured
 as 40–65 ms; 30 % loss measured as 10–55 %; a physical cut seen only by
 measurement; disconnected link and failed switch; a reroute pinned through
