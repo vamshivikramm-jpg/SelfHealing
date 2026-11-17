@@ -396,7 +396,8 @@ class SelfHealingApp(app_manager.RyuApp):
     def _trunk_probe_in(self, dp, data):
         now = time.time()
         try:
-            body = json.loads(bytes(data[14:]).decode())
+            # short frames arrive padded with zeros to Ethernet's 60-byte minimum
+            body = json.loads(bytes(data[14:]).rstrip(b"\x00").decode())
             seq, name, src = int(body["seq"]), body["link"], int(body["src"])
         except (ValueError, KeyError, TypeError):
             return
