@@ -6,6 +6,7 @@ Design and research documentation for the project. Implemented one module at a t
 
 | Document | Description |
 |---|---|
+| [Project-Overview.pdf](Project-Overview.pdf) | 15-page plain-language overview for the team: what, how, every algorithm and why, the flow (source: [overview/project-overview.html](overview/project-overview.html)) |
 | [results.md](results.md) | Results chapter: 10-seed experiments, statistics, figures, threats to validity |
 | [deployment.md](deployment.md) | Setup (simulation and Linux lab), every command, settings, CI, troubleshooting |
 | [demo-script.md](demo-script.md) | ~15 minute presentation walkthrough of the dashboard |

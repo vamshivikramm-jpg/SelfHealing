@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AI-Powered Zero Trust Self-Healing Enterprise Network — Project Overview</title>
+<style>
+  @page { size: A4; margin: 16mm 15mm 16mm 15mm; }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 10.5pt;
+         line-height: 1.45; color: #1d2330; margin: 0; }
+  h1 { font-size: 20pt; color: #12305a; margin: 0 0 6pt; padding-bottom: 4pt; border-bottom: 2.5pt solid #2f6fbf;
+       page-break-before: always; }
+  h1.first { page-break-before: avoid; }
+  h2 { font-size: 13.5pt; color: #12305a; margin: 14pt 0 4pt; }
+  h3 { font-size: 11.5pt; color: #2f6fbf; margin: 10pt 0 3pt; }
+  p { margin: 4pt 0 6pt; }
+  ul, ol { margin: 3pt 0 6pt 16pt; padding: 0; }
+  li { margin: 1.5pt 0; }
+  table { width: 100%; border-collapse: collapse; margin: 6pt 0 10pt; font-size: 9.5pt; page-break-inside: avoid; }
+  th { background: #eaf1fb; color: #12305a; text-align: left; padding: 4pt 6pt; border: 0.6pt solid #c9d6ea; }
+  td { padding: 4pt 6pt; border: 0.6pt solid #d9e1ee; vertical-align: top; }
+  code, .mono { font-family: Menlo, Consolas, monospace; font-size: 9pt; background: #f2f4f8; padding: 0 3pt; border-radius: 3pt; }
+  .formula { font-family: Menlo, Consolas, monospace; font-size: 9.5pt; background: #f4f7fc; border-left: 3pt solid #2f6fbf;
+             padding: 5pt 8pt; margin: 5pt 0 7pt; white-space: pre-wrap; }
+  .note { background: #fff7e6; border: 0.8pt solid #f0c36d; border-radius: 4pt; padding: 6pt 9pt; margin: 8pt 0; }
+  .ok { background: #eef8f1; border: 0.8pt solid #9fd3ad; border-radius: 4pt; padding: 6pt 9pt; margin: 8pt 0; }
+  .algo { border: 0.8pt solid #c9d6ea; border-radius: 5pt; padding: 6pt 10pt 4pt; margin: 8pt 0; page-break-inside: avoid; }
+  .algo h3 { margin-top: 2pt; }
+  .tag { display: inline-block; font-size: 8pt; font-weight: 700; color: #fff; background: #2f6fbf; border-radius: 8pt;
+         padding: 0.5pt 7pt; margin-left: 4pt; vertical-align: 1pt; }
+  .why { color: #12305a; font-weight: 700; }
+  .grid2 { display: flex; gap: 10pt; }
+  .grid2 > div { flex: 1; }
+  .cover { height: 260mm; display: flex; flex-direction: column; justify-content: center; }
+  .cover .title { font-size: 28pt; font-weight: 800; color: #12305a; line-height: 1.15; }
+  .cover .sub { font-size: 13pt; color: #3c4a63; margin-top: 10pt; }
+  .cover .meta { margin-top: 30pt; font-size: 10pt; color: #5b6880; }
+  .toc li { margin: 2pt 0; }
+  .small { font-size: 9pt; color: #5b6880; }
+  svg text { font-family: -apple-system, Helvetica, Arial, sans-serif; }
+  .figure { text-align: center; margin: 6pt 0 8pt; page-break-inside: avoid; }
+  .caption { font-size: 8.5pt; color: #5b6880; text-align: center; margin-top: 2pt; }
+</style>
+</head>
+<body>
+
+<!-- ================= COVER ================= -->
+<div class="cover">
+  <div class="title">AI-Powered Zero Trust<br>Self-Healing Enterprise Network</div>
+  <div class="sub">Project overview for the team: what the system is, how we built it,<br>
+    which algorithms it uses (and why), and how everything flows together.</div>
+  <div class="meta">
+    Final-year major project · Modules 1–9<br>
+    Repository: github.com/vamshivikramm-jpg/SelfHealing<br>
+    Status: all nine modules implemented and evaluated <b>in simulation</b>; live-network validation is the next step.
+  </div>
+  <div class="note" style="margin-top:28pt">
+    <b>One thing to remember while reading:</b> every result in this document comes from a <b>simulated</b> network
+    that runs in Python on a laptop. Failures, early-warning patterns and attacks were <b>designed by us</b>.
+    The real emulated network (Mininet + Open vSwitch + Ryu) needs Linux and has not been run yet.
+  </div>
+  <h2 style="margin-top:22pt">Contents</h2>
+  <ol class="toc">
+    <li>What this project is (in plain words)</li>
+    <li>The big picture: architecture and the closed loop</li>
+    <li>How it works, step by step (one 5-second cycle)</li>
+    <li>The nine modules</li>
+    <li>Algorithms used everywhere — what and why</li>
+    <li>How we developed it</li>
+    <li>Results in one page</li>
+    <li>Limitations and next steps</li>
+    <li>Glossary</li>
+  </ol>
+</div>
+
+<!-- ================= 1 ================= -->
+<h1 class="first" style="page-break-before: always">1. What this project is</h1>
+
+<h2>The problem</h2>
+<p>Company networks fail all the time: a cable gets cut, a switch crashes, a link becomes slow or loses packets,
+or an attacker gets inside. Today a person usually notices the problem <i>after</i> users complain, finds the cause,
+and fixes it by hand. That takes minutes to hours, and while it lasts users lose their connection.</p>
+
+<h2>Our idea</h2>
+<p>Build a network that <b>looks after itself</b>. It should:</p>
+<ol>
+  <li><b>Watch</b> itself all the time (telemetry: latency, packet loss, traffic, link and device status).</li>
+  <li><b>Predict</b> failures before they happen, when there are warning signs (AI / machine learning).</li>
+  <li><b>Trust nobody by default</b> (Zero Trust): check every device and every request, and lower a device's trust
+      when it behaves suspiciously.</li>
+  <li><b>Decide</b> what to do: repair, move traffic to another path, or block a device.</li>
+  <li><b>Heal</b> itself automatically — and then <b>check that the fix really worked</b>, undoing it if not.</li>
+  <li><b>Show</b> everything on a live dashboard, where a person can approve risky actions.</li>
+</ol>
+
+<h2>A simple analogy</h2>
+<p>Think of a hospital patient monitor plus a smart nurse. The monitor (telemetry) shows heart rate and blood pressure.
+The nurse notices worrying trends early (prediction), checks the ID of everyone entering the room (Zero Trust),
+decides on treatment (decision engine), gives it (healing) — and keeps watching to confirm the patient actually got
+better instead of just ticking "medicine given" (verification).</p>
+
+<h2>Why it is "Software-Defined Networking" (SDN)</h2>
+<p>In an SDN, switches do not decide routes on their own; a central program (the <b>controller</b>, here
+<b>Ryu</b>) tells them what to do using the <b>OpenFlow</b> protocol. That is what makes automatic healing
+possible: software can change how traffic flows across the whole network in one place.</p>
+
+<h2>Our test network</h2>
+<p>One core router (<code>rtr-core</code>), two access switches (<code>sw-a</code>, <code>sw-b</code>), five user
+computers (<code>h1</code>–<code>h5</code>) and two servers (web <code>srv-web-1</code>, database
+<code>srv-db-1</code>). For rerouting experiments we also use a version with an extra backup link between the two
+switches, and generated "campus" networks of up to 547 devices.</p>
+
+<!-- ================= 2 ================= -->
+<h1>2. The big picture</h1>
+
+<h2>Layers</h2>
+<div class="figure">
+<svg width="660" height="330" viewBox="0 0 660 330">
+  <defs><marker id="a" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#5b6880"/></marker></defs>
+  <rect x="150" y="6" width="360" height="40" rx="6" fill="#eaf1fb" stroke="#2f6fbf"/>
+  <text x="330" y="31" text-anchor="middle" font-size="13" font-weight="700" fill="#12305a">Network administrator — Dashboard &amp; API (Module 8)</text>
+  <line x1="330" y1="46" x2="330" y2="66" stroke="#5b6880" marker-end="url(#a)"/>
+  <rect x="20" y="68" width="620" height="78" rx="6" fill="#f4f7fc" stroke="#2f6fbf"/>
+  <text x="34" y="86" font-size="11" font-weight="700" fill="#2f6fbf">INTELLIGENCE LAYER</text>
+  <rect x="34" y="94" width="138" height="42" rx="5" fill="#fff" stroke="#9db7dd"/><text x="103" y="112" text-anchor="middle" font-size="11" font-weight="700">Telemetry</text><text x="103" y="127" text-anchor="middle" font-size="9.5" fill="#5b6880">Modules 2–3</text>
+  <rect x="184" y="94" width="138" height="42" rx="5" fill="#fff" stroke="#9db7dd"/><text x="253" y="112" text-anchor="middle" font-size="11" font-weight="700">AI prediction</text><text x="253" y="127" text-anchor="middle" font-size="9.5" fill="#5b6880">Module 4</text>
+  <rect x="334" y="94" width="138" height="42" rx="5" fill="#fff" stroke="#9db7dd"/><text x="403" y="112" text-anchor="middle" font-size="11" font-weight="700">Zero Trust</text><text x="403" y="127" text-anchor="middle" font-size="9.5" fill="#5b6880">Module 5</text>
+  <rect x="484" y="94" width="142" height="42" rx="5" fill="#fff" stroke="#9db7dd"/><text x="555" y="112" text-anchor="middle" font-size="11" font-weight="700">Decision engine</text><text x="555" y="127" text-anchor="middle" font-size="9.5" fill="#5b6880">Module 6</text>
+  <line x1="330" y1="146" x2="330" y2="166" stroke="#5b6880" marker-end="url(#a)"/>
+  <rect x="20" y="168" width="620" height="66" rx="6" fill="#f2f9f4" stroke="#3a9d5d"/>
+  <text x="34" y="186" font-size="11" font-weight="700" fill="#3a9d5d">CONTROL &amp; RECOVERY LAYER</text>
+  <rect x="34" y="192" width="190" height="34" rx="5" fill="#fff" stroke="#9fd3ad"/><text x="129" y="214" text-anchor="middle" font-size="11" font-weight="700">Self-healing (Module 7)</text>
+  <rect x="236" y="192" width="190" height="34" rx="5" fill="#fff" stroke="#9fd3ad"/><text x="331" y="214" text-anchor="middle" font-size="11" font-weight="700">Failure manager (Module 1)</text>
+  <rect x="438" y="192" width="188" height="34" rx="5" fill="#fff" stroke="#9fd3ad"/><text x="532" y="214" text-anchor="middle" font-size="11" font-weight="700">Network controller (Module 1)</text>
+  <line x1="330" y1="234" x2="330" y2="254" stroke="#5b6880" marker-end="url(#a)"/>
+  <rect x="20" y="256" width="620" height="66" rx="6" fill="#fdf5ec" stroke="#e8a33d"/>
+  <text x="34" y="274" font-size="11" font-weight="700" fill="#b8741a">SDN NETWORK LAYER</text>
+  <text x="330" y="300" text-anchor="middle" font-size="11.5">Ryu controller · OpenFlow · Open vSwitch · Mininet · hosts and servers</text>
+  <text x="330" y="315" text-anchor="middle" font-size="9.5" fill="#5b6880">(simulated in Python today; real on a Linux VM later)</text>
+</svg>
+</div>
+
+<h2>The closed loop (the heart of the project)</h2>
+<div class="figure">
+<svg width="660" height="250" viewBox="0 0 660 250">
+  <defs><marker id="b" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#2f6fbf"/></marker></defs>
+  <g font-size="11.5" font-weight="700" text-anchor="middle">
+    <rect x="10" y="40" width="110" height="48" rx="8" fill="#fdf5ec" stroke="#e8a33d"/><text x="65" y="62">SDN network</text><text x="65" y="78" font-size="9.5" font-weight="400" fill="#5b6880">switches, links</text>
+    <rect x="150" y="40" width="110" height="48" rx="8" fill="#eaf1fb" stroke="#2f6fbf"/><text x="205" y="62">1. Watch</text><text x="205" y="78" font-size="9.5" font-weight="400" fill="#5b6880">telemetry + health</text>
+    <rect x="290" y="40" width="110" height="48" rx="8" fill="#eaf1fb" stroke="#2f6fbf"/><text x="345" y="62">2. Predict</text><text x="345" y="78" font-size="9.5" font-weight="400" fill="#5b6880">AI failure score</text>
+    <rect x="430" y="40" width="110" height="48" rx="8" fill="#eaf1fb" stroke="#2f6fbf"/><text x="485" y="62">3. Trust</text><text x="485" y="78" font-size="9.5" font-weight="400" fill="#5b6880">Zero Trust score</text>
+    <rect x="540" y="150" width="110" height="48" rx="8" fill="#eaf1fb" stroke="#2f6fbf"/><text x="595" y="172">4. Decide</text><text x="595" y="188" font-size="9.5" font-weight="400" fill="#5b6880">risk → action</text>
+    <rect x="380" y="150" width="120" height="48" rx="8" fill="#f2f9f4" stroke="#3a9d5d"/><text x="440" y="172">5. Heal</text><text x="440" y="188" font-size="9.5" font-weight="400" fill="#5b6880">execute the action</text>
+    <rect x="220" y="150" width="120" height="48" rx="8" fill="#f2f9f4" stroke="#3a9d5d"/><text x="280" y="172">6. Verify</text><text x="280" y="188" font-size="9.5" font-weight="400" fill="#5b6880">did it really work?</text>
+    <rect x="60" y="150" width="120" height="48" rx="8" fill="#fbecec" stroke="#d1495b"/><text x="120" y="172">Undo / escalate</text><text x="120" y="188" font-size="9.5" font-weight="400" fill="#5b6880">if checks fail</text>
+  </g>
+  <g stroke="#2f6fbf" stroke-width="1.6" fill="none">
+    <line x1="120" y1="64" x2="148" y2="64" marker-end="url(#b)"/>
+    <line x1="260" y1="64" x2="288" y2="64" marker-end="url(#b)"/>
+    <line x1="400" y1="64" x2="428" y2="64" marker-end="url(#b)"/>
+    <path d="M540,64 Q595,64 595,148" marker-end="url(#b)"/>
+    <line x1="540" y1="174" x2="502" y2="174" marker-end="url(#b)"/>
+    <line x1="380" y1="174" x2="342" y2="174" marker-end="url(#b)"/>
+    <line x1="220" y1="174" x2="182" y2="174" marker-end="url(#b)"/>
+    <path d="M280,198 Q280,236 65,236 Q20,236 20,90" marker-end="url(#b)"/>
+  </g>
+  <text x="300" y="232" font-size="10" fill="#2f6fbf">changes reach the network → the next cycle measures them again</text>
+</svg>
+<div class="caption">This loop repeats every few seconds (5 s in experiments, 2 s in the dashboard demo).</div>
+</div>
+
+<h2>Two programs, two different jobs</h2>
+<table>
+  <tr><th>Program</th><th>Job</th></tr>
+  <tr><td><b>Ryu controller</b></td><td>Talks OpenFlow to the switches: how packets are forwarded (the "traffic police").</td></tr>
+  <tr><td><b>NetworkController</b> (our Python class)</td><td>Builds and manages the whole emulated network: starts/stops it, turns devices
+    and links on and off, applies latency/loss/bandwidth limits. The only part of our code allowed to touch the network.</td></tr>
+</table>
+<p>We kept these separate on purpose: forwarding logic and network management change for different reasons, and keeping
+them apart means each can be fixed or replaced without breaking the other.</p>
+
+<!-- ================= 3 ================= -->
+<h1>3. How it works, step by step</h1>
+<p>Here is one cycle of the loop, followed by a worked example. Each step lists the module that does it.</p>
+
+<table>
+  <tr><th style="width:4%">#</th><th style="width:22%">Step</th><th>What happens</th></tr>
+  <tr><td>1</td><td><b>Collect telemetry</b> (M2)</td><td>For every link and device: up/down, latency, loss, capacity, traffic counters, CPU, memory.</td></tr>
+  <tr><td>2</td><td><b>Turn counters into rates</b> (M2)</td><td>Switches only give running totals; we compute throughput, utilisation and drop rate from the change since last time.</td></tr>
+  <tr><td>3</td><td><b>Health check</b> (M2)</td><td>Each link/device is HEALTHY, DEGRADED (e.g. latency &gt; 50 ms) or DOWN. A change creates an event.</td></tr>
+  <tr><td>4</td><td><b>Store history</b> (M3)</td><td>Readings and events are saved to a SQLite database for analysis and for the AI.</td></tr>
+  <tr><td>5</td><td><b>Predict</b> (M4)</td><td>From the last 30 s and 120 s of readings, the model gives each link a failure score (0–1). Above the alarm level → "failure predicted".</td></tr>
+  <tr><td>6</td><td><b>Zero Trust</b> (M5)</td><td>Every network request is checked: right identity? allowed by policy? trust high enough? Suspicious behaviour lowers trust; very low trust → quarantine.</td></tr>
+  <tr><td>7</td><td><b>Risk</b> (M6)</td><td>Combine prediction, trust, threat and current faults into one risk number per link/device (Eq. 4).</td></tr>
+  <tr><td>8</td><td><b>Decide</b> (M6)</td><td>Choose actions: RESTORE, REROUTE, LOAD_BALANCE, QUARANTINE, BLOCK, ISOLATE or MONITOR. Safety checks; risky ones wait for a person.</td></tr>
+  <tr><td>9</td><td><b>Heal</b> (M7)</td><td>Carry out approved actions on the network.</td></tr>
+  <tr><td>10</td><td><b>Verify</b> (M7)</td><td>Over the next collections, check the real result (link really up? traffic really delivered?). Pass → done. Fail → undo, retry, then escalate to a person.</td></tr>
+  <tr><td>11</td><td><b>Show</b> (M8)</td><td>The dashboard displays all of it live; an operator can approve or reject actions.</td></tr>
+</table>
+
+<h2>Worked example: a cable between the two switches is cut</h2>
+<ol>
+  <li><b>t = 0 s</b> — the cable <code>sw-a ↔ sw-b</code> is cut. It is <b>physical</b> damage: software cannot repair it.</li>
+  <li><b>Next reading</b> — telemetry shows the link down and 100 % loss; health becomes DOWN; an event is published.</li>
+  <li><b>Risk</b> — the "fault" part of Eq. 4 is 1.0 → risk 0.40, above the action threshold (0.15).</li>
+  <li><b>Decision</b> — RESTORE the link, and REROUTE the 4 client/server connections that used it through the router
+      (the cheapest healthy path found by Dijkstra).</li>
+  <li><b>Healing</b> — RESTORE runs ("reconnect link" succeeds as a command); REROUTE installs the new paths.</li>
+  <li><b>Verification</b> — REROUTE: traffic is delivered 100 % on the new paths → <b>verified</b>.
+      RESTORE: telemetry still shows the link down → retried once, still down → <b>escalated</b> to a person.</li>
+  <li><b>Users</b> — connectivity came back within one cycle thanks to the reroute, even though the cable is still cut.</li>
+  <li><b>Later</b> — a technician repairs the cable; health becomes HEALTHY; the decision is resolved and traffic
+      <b>fails back</b> to the original path automatically.</li>
+</ol>
+<div class="ok">Without verification the system would report "restore successful" while the cable is still cut —
+our experiments show exactly this (about 2 false reports per 3-hour run).</div>
+
+<!-- ================= 4 ================= -->
+<h1>4. The nine modules</h1>
+<table>
+  <tr><th style="width:24%">Module</th><th>What it does</th><th style="width:28%">Main output</th></tr>
+  <tr><td><b>1. SDN foundation</b></td><td>YAML topology, network builder, NetworkController, network state, event bus, failure injection (router, switch, link, latency, loss, bandwidth), 6 ready-made failure scenarios.</td><td>A controllable test network</td></tr>
+  <tr><td><b>2. Telemetry &amp; monitoring</b></td><td>Collects readings every interval, derives rates, rates each link/device HEALTHY / DEGRADED / DOWN.</td><td>Live readings + health events</td></tr>
+  <tr><td><b>3. Data &amp; analytics</b></td><td>SQLite history, cleaning and resampling, rolling-window features, "normal behaviour" baselines, labelled datasets, availability and repair-time statistics.</td><td>Datasets for the AI, statistics</td></tr>
+  <tr><td><b>4. AI failure prediction</b></td><td>Six models compared fairly; model registry; live early warnings.</td><td>Failure score per link</td></tr>
+  <tr><td><b>5. Zero Trust security</b></td><td>Device identities, trust scores, behaviour detectors, default-deny policy, switch rules.</td><td>Trust levels, blocks, quarantines</td></tr>
+  <tr><td><b>6. Decision engine</b></td><td>Combines all signals into risk, plans paths, picks actions, applies safety checks and approval levels.</td><td>Actions ("intents")</td></tr>
+  <tr><td><b>7. Self-healing</b></td><td>Executes actions, verifies them against the real network, undoes/retries/escalates, fails back.</td><td>Verified repairs</td></tr>
+  <tr><td><b>8. Dashboard</b></td><td>Web dashboard with live topology, charts, approvals and a simulation mode with controls to inject failures and attacks.</td><td>The demo</td></tr>
+  <tr><td><b>9. Evaluation &amp; deployment</b></td><td>Reproducible experiments (10 runs each), statistics, figures, results chapter, deployment guide, automatic tests (CI).</td><td>Evidence for the report</td></tr>
+</table>
+
+<h2>Code at a glance</h2>
+<table>
+  <tr><th>Folder</th><th>Contents</th></tr>
+  <tr><td><code>network/config/</code></td><td>Topology, identities, Zero Trust policy, decision policy (all YAML, editable)</td></tr>
+  <tr><td><code>network/src/network/</code></td><td><code>control</code>, <code>failure</code>, <code>telemetry</code>, <code>analytics</code>, <code>prediction</code>, <code>security</code>, <code>decision</code>, <code>healing</code>, <code>simulation</code>, <code>experiments</code></td></tr>
+  <tr><td><code>controller/apps/</code></td><td>Ryu applications (topology registry, L2 learning switch)</td></tr>
+  <tr><td><code>viewer/</code></td><td>FastAPI backend + dashboard (HTML/JS/CSS)</td></tr>
+  <tr><td><code>tests/unit/</code></td><td>469 automated tests</td></tr>
+  <tr><td><code>docs/</code></td><td>Results chapter, deployment guide, demo script, research document</td></tr>
+</table>
+
+<!-- ================= 5 ================= -->
+<h1>5. Algorithms used everywhere — what and why</h1>
+<p>For each algorithm: <b>what</b> it does in our system, and <span class="why">why</span> we chose it over the
+alternatives. Equation numbers (Eq. 2, Eq. 4 …) refer to our research document.</p>
+
+<h2>Module 1 — SDN foundation</h2>
+<div class="algo"><h3>L2 MAC-learning switch <span class="tag">Ryu</span></h3>
+<p><b>What:</b> when a packet arrives, the switch remembers "this MAC address lives behind this port". If it already
+knows the destination, it installs a forwarding rule; otherwise it floods the packet to all ports. Rules expire after
+30 s of inactivity.</p>
+<p><span class="why">Why:</span> it is the simplest correct forwarding for a single network segment, and it lets
+switches handle traffic without asking the controller for every packet. Its known limit: it floods in loops, which
+is why our redundant topologies are simulation-only until loop-aware forwarding is added.</p></div>
+<div class="algo"><h3>Topology validation <span class="tag">graph checks</span></h3>
+<p><b>What:</b> before building the network we check unique names and IDs, IPs inside their subnets, every link
+pointing at real devices, and every host having exactly one link.</p>
+<p><span class="why">Why:</span> a wrong YAML file would otherwise fail deep inside Mininet with confusing errors;
+checking first gives a clear message.</p></div>
+
+<h2>Module 2 — Telemetry and monitoring</h2>
+<div class="algo"><h3>Counter-to-rate derivation</h3>
+<div class="formula">throughput (Mbps) = (bytes_now − bytes_before) × 8 / (seconds between readings) / 1,000,000
+utilisation (%)   = throughput / link capacity × 100
+if bytes_now &lt; bytes_before → the device restarted: skip this interval</div>
+<p><span class="why">Why:</span> real switches (OpenFlow port statistics) only report running totals, never rates.
+Doing the maths ourselves, including restart detection, means the same code works for simulated and real data and
+never produces a fake negative "spike".</p></div>
+<div class="algo"><h3>Threshold health rules</h3>
+<p><b>What:</b> DOWN if the status reading is 0; DEGRADED if latency &gt; 50 ms, loss &gt; 2 %, utilisation &gt; 85 %,
+drop rate &gt; 100 packets/s, or CPU/memory &gt; 90 %; otherwise HEALTHY. Events are sent only when the status
+<i>changes</i>.</p>
+<p><span class="why">Why:</span> fixed thresholds are transparent and instant, which is exactly what you want for
+"is it broken right now?". Sending only changes avoids flooding later modules with repeated messages. (Learned
+"normal" ranges and prediction are added in Modules 3–4.)</p></div>
+<div class="algo"><h3>Simulated probe loss (binomial sampling)</h3>
+<p><b>What:</b> in the simulation, each reading sends 50 virtual probes, each lost with the configured probability.</p>
+<p><span class="why">Why:</span> a real ping test is noisy — 10 % loss does not read exactly 10 % every time. Adding
+realistic noise keeps the AI and health checks honest instead of letting them learn a perfectly clean number.</p></div>
+
+<h2>Module 3 — Data management and analytics</h2>
+<div class="algo"><h3>Fixed-bucket resampling and short-gap filling</h3>
+<p><b>What:</b> readings are grouped into equal time buckets (e.g. every 5 s) and averaged. Gaps of up to 2 buckets are
+filled with the last value; longer gaps stay empty.</p>
+<p><span class="why">Why:</span> machine learning needs evenly spaced data. Filling only short gaps avoids hiding a
+real outage behind made-up values.</p></div>
+<div class="algo"><h3>Rolling-window features</h3>
+<p><b>What:</b> for each metric, over the last 30 s and 120 s: mean, standard deviation, min, max, latest value,
+change, and <b>trend</b> (least-squares slope).</p>
+<div class="formula">slope = Σ (t − t̄)(v − v̄) / Σ (t − t̄)²     (how fast the value is rising or falling, per second)</div>
+<p><span class="why">Why:</span> failures are often preceded by a <i>trend</i> (latency creeping up), not just a high
+value. Two window lengths capture both quick spikes and slow drifts. Features only use past data, so the model can never
+"see the future".</p></div>
+<div class="algo"><h3>Behaviour baselines and z-scores</h3>
+<p><b>What:</b> from a healthy period we learn each series' mean, standard deviation and 50th/95th/99th percentiles,
+then score new readings by how many standard deviations they are from normal.</p>
+<div class="formula">z = (value − normal mean) / max(normal std, 0.001)</div>
+<p><span class="why">Why:</span> a link whose latency jumps from 0.05 ms to 5 ms is still far below the 50 ms
+threshold, but very abnormal <i>for that link</i>. The small floor stops division by zero for series that never vary.</p></div>
+<div class="algo"><h3>Leak-free labelling (horizon + cooldown)</h3>
+<p><b>What:</b> each row is labelled "failure in progress" or "failure coming within 60 s". Rows just after a failure
+(the "cooldown") are excluded, and the time between failures is random.</p>
+<p><span class="why">Why:</span> while preparing Module 4 we found a <b>data leak</b>: with a fixed gap between failures,
+a model could "predict" failures that had no warning signs just from the schedule. Random gaps plus the cooldown removed
+it — afterwards no model could predict sign-less failures (as it should be).</p></div>
+
+<h2>Module 4 — AI failure prediction</h2>
+<p>We compared six models on the same data. Each was trained, tuned and tested on <b>different simulation runs</b>
+(never a random split of rows, which would inflate scores).</p>
+<table>
+  <tr><th style="width:20%">Model</th><th>What it is</th><th>Why we included it</th></tr>
+  <tr><td>Health thresholds</td><td>The Module 2 rules applied to the latest values</td><td>The "no AI" bar to beat</td></tr>
+  <tr><td>Z-score</td><td>Largest distance from normal of the latest value and trend</td><td>Simple statistics; tells us whether AI adds anything</td></tr>
+  <tr><td>Logistic regression</td><td>A weighted sum of features turned into a probability</td><td>Fast, interpretable (you can read the weights)</td></tr>
+  <tr><td>Random forest</td><td>Many decision trees voting</td><td>Captures non-linear patterns; robust</td></tr>
+  <tr><td>Gradient boosting</td><td>Trees built one after another to fix earlier errors</td><td>Often the most accurate on tables; handles missing values</td></tr>
+  <tr><td>Isolation Forest</td><td>Unsupervised: isolates unusual points</td><td>Works without labels (real networks rarely have labelled failures)</td></tr>
+</table>
+<div class="algo"><h3>Choosing the alarm threshold</h3>
+<p><b>What:</b> on the tuning runs, pick the score threshold that catches the most failures while keeping false alarms
+at or below 1 per hour. That threshold is then fixed for the test runs.</p>
+<p><span class="why">Why:</span> operators stop trusting a system that cries wolf. Fixing the threshold before
+testing keeps the test honest.</p></div>
+<div class="algo"><h3>Champion / challenger model registry</h3>
+<p><b>What:</b> every trained model is saved with a "model card" (threshold, scores, data used). Only a promoted
+"champion" runs live; the previous one can be restored with one call.</p>
+<p><span class="why">Why:</span> it lets us swap in a better model without code changes, and roll back if a new one
+behaves badly.</p></div>
+<div class="note"><b>What we learned:</b> on our data, logistic regression (97 % of warned failures caught) and the simple
+z-score (83 %) did best; the difference is not statistically significant. Complex models did not win. With no warning
+signs at all, every model drops to chance — prediction is only as good as the warning signs in the data.</div>
+
+<h2>Module 5 — Zero Trust security</h2>
+<div class="algo"><h3>Dynamic trust score with exponential decay <span class="tag">Eq. 2</span></h3>
+<div class="formula">trust = base trust − Σ  weight(anomaly type) × size of anomaly × 0.5^(age / 300 s)</div>
+<p><b>What:</b> each device starts at a base trust (e.g. admin 0.9, employee 0.8, contractor 0.6, minus 0.1 for each
+missing security item such as "not managed"). Every suspicious event lowers it; the effect halves every 5 minutes.</p>
+<p><span class="why">Why:</span> recent behaviour should matter more than old behaviour, and a device that behaves
+well again should slowly regain trust. The half-life makes "how quickly we forgive" a single clear setting.</p></div>
+<div class="algo"><h3>Trust levels with hysteresis</h3>
+<p><b>What:</b> TRUSTED at 0.7 or more, RESTRICTED in between, QUARANTINED below 0.3. A quarantined device is released
+only when trust climbs back to 0.5 (capped just below its own base).</p>
+<p><span class="why">Why:</span> a gap between "enter" and "leave" levels stops a device flickering in and out of
+quarantine. The cap fixed a bug where contractors (base 0.5) could never be released.</p></div>
+<div class="algo"><h3>Behaviour detectors</h3>
+<table>
+  <tr><th>Detector</th><th>Algorithm</th><th>Why</th></tr>
+  <tr><td>Identity spoofing</td><td>Compare the claimed IP/MAC with the device on that switch port</td><td>A device pretending to be another is the clearest attack signal</td></tr>
+  <tr><td>Brute-force logins</td><td>Sliding 60 s window: ≥ 5 failed logins</td><td>Normal users rarely fail that often that fast</td></tr>
+  <tr><td>Port scan</td><td>Sliding 30 s window: ≥ 10 different destination ports</td><td>Scanners probe many ports; normal apps use a few</td></tr>
+  <tr><td>Policy violation</td><td>Count requests the device's role may never make</td><td>Reaching for forbidden services = lateral movement</td></tr>
+  <tr><td>Volume anomaly</td><td>EWMA (moving average) of each device's own traffic; alert at z &gt; 6</td><td>Each device has its own normal; learning only from normal data avoids "learning" the attack</td></tr>
+  <tr><td>Flood (DDoS)</td><td>Shannon entropy of traffic per sender: H = −Σ p·log p</td><td>Normal traffic is spread over many senders; a flood concentrates it on one, so entropy drops</td></tr>
+</table></div>
+<div class="algo"><h3>Default-deny policy decision</h3>
+<p><b>What:</b> every request is checked in order: known device? → genuine identity? → not quarantined? → a rule allows
+this role to reach this server and port? → trust above that rule's minimum? Only then allowed.</p>
+<p><span class="why">Why:</span> this is the core of Zero Trust — "never trust, always verify". Least privilege means
+each role only gets the services it needs (e.g. only admins may use SSH).</p></div>
+<div class="algo"><h3>Two-table switch rules</h3>
+<p><b>What:</b> table 0 checks "this port only sends with its own MAC/IP" (identity), table 1 checks "what may it access"
+(policy + quarantine). Rules are rebuilt from the current trust every cycle.</p>
+<p><span class="why">Why:</span> separating "who are you" from "what may you do" mirrors how Zero Trust is designed and
+how OpenFlow switches work. Our tests check the switch rules never disagree with the policy decisions.</p></div>
+
+<h2>Module 6 — Decision engine</h2>
+<div class="algo"><h3>Combined risk score <span class="tag">Eq. 4</span></h3>
+<div class="formula">risk = 0.30 × prediction + 0.15 × (1 − trust) + 0.15 × threat + 0.40 × current fault
+       (fault: 1.0 if DOWN, 0.5 if DEGRADED)       act when risk ≥ 0.15</div>
+<p><span class="why">Why:</span> one number lets very different signals (AI, security, health) be compared and ranked.
+The fault weight is the largest so that something already broken always gets attention. (We corrected the threshold from
+0.35 to 0.15 after noticing 0.35 would only ever act on links that were already down.)</p></div>
+<div class="algo"><h3>Dijkstra shortest path with a custom cost <span class="tag">Eq. 6</span></h3>
+<div class="formula">cost of a link = 1 × loss% + 0.1 × latency(ms) + 10 × predicted failure probability</div>
+<p><b>What:</b> to reroute, we find the cheapest path that avoids the failed link and still has spare capacity. Hosts
+are never used as stepping stones.</p>
+<p><span class="why">Why:</span> Dijkstra is fast, exact and well understood. Putting loss, latency and predicted
+failure into the cost avoids moving traffic onto a path that is itself about to fail.</p></div>
+<div class="algo"><h3>Greedy load balancing (min-max utilisation)</h3>
+<p><b>What:</b> move connections off a congested link one at a time, keeping a move only if the busiest link gets
+lighter.</p>
+<p><span class="why">Why:</span> simple, explainable, and good enough for a small network; an exact optimiser would be
+heavier without clear benefit here.</p></div>
+<div class="algo"><h3>Safety checks</h3>
+<p><b>What:</b> one action per target (security &gt; restore &gt; reroute &gt; load balance &gt; monitor); no duplicates;
+a 60 s cooldown after an action is resolved (except for hard failures and security); and approval levels — L1: a person
+approves everything, L2: reversible actions are automatic, risky ones wait, L3: fully automatic.</p>
+<p><span class="why">Why:</span> automation that flip-flops or isolates servers on a hunch is dangerous. These rules keep
+the system stable and keep a human in charge of risky moves.</p></div>
+
+<h2>Module 7 — Self-healing</h2>
+<div class="algo"><h3>Verify-or-rollback</h3>
+<p><b>What:</b> after each action, check its "post-conditions" against the real network over the next 3 collections;
+it must pass on 2 in a row. Checks: link/device really up (telemetry), traffic really delivered on the new path, test
+packet really blocked. Fail → undo, retry once after 10 s, then escalate (repairs) or mark failed.</p>
+<p><span class="why">Why:</span> the project brief requires proving that a fix worked, not just that a command ran.
+Without verification our system reported 100 % success while 2 repairs per run did nothing.</p></div>
+<div class="algo"><h3>Traffic-delivery model</h3>
+<div class="formula">delivered = 0 if any device or link on the path is down
+          otherwise  Π (1 − loss of each link on the path)</div>
+<p><span class="why">Why:</span> it measures what users actually experience, which lets us compute
+"user-visible packet loss" and check reroutes end to end.</p></div>
+<div class="algo"><h3>Physical-fault model</h3>
+<p><b>What:</b> in the simulation, some failures are "physical" (a cut cable): software cannot fix them, and telemetry
+reads the true state, not what the controller believes.</p>
+<p><span class="why">Why:</span> without it every repair would trivially succeed and verification would prove nothing.</p></div>
+
+<h2>Module 9 — Evaluation statistics</h2>
+<div class="algo"><h3>Confidence intervals, Wilcoxon test, Holm correction</h3>
+<p><b>What:</b> each experiment runs 10 times with different seeds. We report the mean with a 95 % confidence interval
+(Student t). To compare two settings we use the <b>paired Wilcoxon signed-rank test</b>, adjust p-values with
+<b>Holm's correction</b> when making several comparisons, and report an effect size.</p>
+<p><span class="why">Why:</span> 10 runs are too few to assume a normal distribution, so a rank-based test is safer.
+Pairing (same seed in both settings) removes run-to-run noise. Holm's correction prevents "lucky" findings when testing
+many comparisons. Detection quality in Module 5 uses <b>AUROC</b> (computed with the Mann–Whitney rank method): the chance
+that an attacking device is ranked above a normal one.</p></div>
+
+<!-- ================= 6 ================= -->
+<h1>6. How we developed it</h1>
+
+<h2>Process</h2>
+<ol>
+  <li><b>Inspection first.</b> We reviewed the existing code (Module 1), ran its tests, and listed what really worked versus what was only documented.</li>
+  <li><b>One module at a time,</b> each on its own git branch, ending in a reviewed pull request that was merged into <code>main</code> (8 pull requests).</li>
+  <li><b>Plan → approve → build.</b> Each module started with a written plan and the design choices that needed the team's approval.</li>
+  <li><b>Tests with every change.</b> 469 automated tests; every commit kept them passing. Since Module 9, GitHub Actions runs them automatically on Python 3.9 and 3.11.</li>
+  <li><b>Evaluate, don't assume.</b> Each module ends with an evaluation command that produces numbers; Module 9 repeats them 10 times with statistics.</li>
+  <li><b>Honesty labels.</b> Simulated and synthetic data are flagged in every dataset, report and dashboard screen.</li>
+</ol>
+
+<h2>Why simulation first</h2>
+<p>The real emulated network (Mininet + Open vSwitch) only runs on Linux, and development happened on a Mac. Rather than
+wait, we built a faithful <b>simulated data plane</b> behind the same interfaces, so every module could be built and
+tested now and switched to the real network later with minimal changes.</p>
+
+<h2>Problems we found and fixed along the way</h2>
+<table>
+  <tr><th style="width:30%">Problem</th><th>What we did</th></tr>
+  <tr><td>Data leak in prediction datasets</td><td>Fixed gaps between failures let models "cheat"; made gaps random and excluded cooldown rows.</td></tr>
+  <tr><td>Zero Trust "death spiral"</td><td>Low-trust denials were counted as misbehaviour, pushing trust lower and lower (52 % of legitimate traffic blocked). Stopped counting them.</td></tr>
+  <tr><td>Contractors stuck in quarantine</td><td>Release level equalled their base trust, which is never reached; capped it just below base.</td></tr>
+  <tr><td>Reroutes undoing themselves</td><td>Planning from already-moved routes cancelled reroutes; now plans from the original routes.</td></tr>
+  <tr><td>Risk threshold too high</td><td>0.35 could only act on dead links; changed to 0.15 and documented why.</td></tr>
+  <tr><td>Cooldown delaying a real repair</td><td>Found by running the live dashboard; hard failures are now exempt.</td></tr>
+  <tr><td>Predictor false alarms at start-up</td><td>It now waits until it has a full window of history.</td></tr>
+  <tr><td>Results not saved in the repository</td><td>An ignore rule hid <code>docs/results/</code>; fixed and committed the archived run.</td></tr>
+</table>
+
+<h2>Tools and technologies</h2>
+<p>Python 3.9+ · PyYAML · NumPy · scikit-learn · SciPy · SQLite · FastAPI + uvicorn · plain JavaScript + SVG +
+Cytoscape.js (dashboard) · Mininet, Open vSwitch, Ryu, Docker (live network) · Git, GitHub, GitHub Actions.</p>
+
+<!-- ================= 7 ================= -->
+<h1>7. Results in one page</h1>
+<p class="small">Simulated network · 10 runs per condition, 3 simulated hours each · mean [95 % confidence interval] ·
+full details in <code>docs/results.md</code>.</p>
+
+<table>
+  <tr><th>Question</th><th>Answer</th></tr>
+  <tr><td>Does self-healing help?</td><td><b>Yes.</b> Mean time to repair <b>78 s → 24 s</b>; traffic lost by users during outages <b>93 % → 33 %</b>. Better in all 10 runs (p = 0.006).</td></tr>
+  <tr><td>Does verification matter?</td><td><b>Yes, most of all.</b> Without it the system reports 100 % success while about <b>2 repairs per run did nothing</b>.</td></tr>
+  <tr><td>Does AI prediction help healing?</td><td>Not in simulation: detection is already within one 5 s reading, so predicting can't beat reacting. It matters when real detection is slower.</td></tr>
+  <tr><td>Which predictor is best?</td><td>Logistic regression catches 97 % of failures that have warning signs (z-score 83 %, difference not significant); complex models did worse.</td></tr>
+  <tr><td>Does Zero Trust work?</td><td>Every synthetic attack detected; AUROC 0.946; 1.0 % of attack traffic slipped through; <b>0 %</b> of legitimate traffic blocked.</td></tr>
+  <tr><td>Are decisions correct?</td><td>100 % agree with our written rules; 0.03 unneeded actions per hour; decisions take 0.18 ms.</td></tr>
+  <tr><td>Smarter paths vs random paths?</td><td>Same repair time; cost-based paths are slightly shorter (1.17× vs 1.20× the original length).</td></tr>
+  <tr><td>What limits healing?</td><td>Physical damage: repair time 5 s when no faults are physical, 44 s when 75 % are.</td></tr>
+  <tr><td>Does it scale?</td><td>547 devices: 0.26 s of work per 5 s cycle. Zero Trust rule rebuilding is the bottleneck.</td></tr>
+</table>
+
+<div class="figure"><img src="../results/full-run/figures/healing_mttr.svg" style="width:88%"></div>
+<div class="caption">Mean time to repair by mode (bars: mean; whiskers: 95 % confidence interval).</div>
+
+<!-- ================= 8 ================= -->
+<h1>8. Limitations and next steps</h1>
+<h2>Be clear about these in the report and presentation</h2>
+<ul>
+  <li><b>Simulated network.</b> No result has been measured on Mininet/Open vSwitch or real hardware.</li>
+  <li><b>Designed data.</b> Failures, warning patterns and attacks were created by us; models learn what we built in.</li>
+  <li><b>Rules we wrote.</b> "Correct decisions" means agreement with our own rules.</li>
+  <li><b>Simplifications.</b> Instant detection, traffic load that does not follow routes, failures that never overlap, a small main topology.</li>
+</ul>
+
+<h2>Next steps (in order)</h2>
+<ol>
+  <li><b>Set up the Linux VM</b> (Ubuntu Server 24.04 in UTM) and run the real network — steps in <code>docs/deployment.md</code>.</li>
+  <li><b>Fix the known real-network gaps:</b> re-enabling devices, applying latency/loss/bandwidth for real (TCLink), scenario state names.</li>
+  <li><b>Live telemetry:</b> read OpenFlow port statistics from Ryu and run ping/iperf probes.</li>
+  <li><b>Live execution:</b> send healing and Zero Trust rules to the switches through Ryu.</li>
+  <li><b>Loop-safe forwarding and routing between subnets</b>, so the redundant topology can run for real.</li>
+  <li><b>Re-run the experiments</b> on the real network and put both sets of results side by side.</li>
+</ol>
+
+<h2>How to run the demo</h2>
+<div class="formula">VIEWER_MODE=simulation python3 -m uvicorn viewer.app:app --host 127.0.0.1 --port 8000
+then open http://127.0.0.1:8000  →  Control tab  →  "Run demo"</div>
+<p>The full walkthrough is in <code>docs/demo-script.md</code>.</p>
+
+<!-- ================= 9 ================= -->
+<h1>9. Glossary</h1>
+<table>
+  <tr><th style="width:24%">Term</th><th>Meaning</th></tr>
+  <tr><td>SDN</td><td>Software-Defined Networking: a central program (controller) decides how switches forward traffic.</td></tr>
+  <tr><td>OpenFlow</td><td>The protocol the controller uses to install forwarding rules on switches.</td></tr>
+  <tr><td>Ryu</td><td>The open-source SDN controller we use.</td></tr>
+  <tr><td>Mininet / Open vSwitch</td><td>Tools that create a realistic virtual network of hosts and software switches on Linux.</td></tr>
+  <tr><td>Telemetry</td><td>Measurements about the network: status, latency, loss, traffic, CPU.</td></tr>
+  <tr><td>Zero Trust</td><td>Security model: trust no device by default; verify identity and permission on every request.</td></tr>
+  <tr><td>Trust score</td><td>A number 0–1 per device that drops when it behaves suspiciously and recovers over time.</td></tr>
+  <tr><td>Quarantine</td><td>Blocking all of a device's traffic except to its gateway.</td></tr>
+  <tr><td>Intent</td><td>A decided action (RESTORE, REROUTE, QUARANTINE…) described independently of how switches implement it.</td></tr>
+  <tr><td>Post-condition</td><td>A check that must be true after an action for it to count as successful.</td></tr>
+  <tr><td>MTTR</td><td>Mean Time To Repair: average time from detecting a problem to service working again.</td></tr>
+  <tr><td>Precursor</td><td>A warning pattern before a failure (e.g. latency slowly rising).</td></tr>
+  <tr><td>AUROC</td><td>Probability that a detector ranks a bad case above a good one (1.0 = perfect, 0.5 = guessing).</td></tr>
+  <tr><td>Confidence interval</td><td>A range that very likely contains the true average, given run-to-run variation.</td></tr>
+  <tr><td>p-value</td><td>How surprising a difference would be if there were really no effect; below 0.05 = statistically significant.</td></tr>
+  <tr><td>Simulated / synthetic</td><td>Produced by our model rather than measured on a real network.</td></tr>
+</table>
+
+</body>
+</html>
