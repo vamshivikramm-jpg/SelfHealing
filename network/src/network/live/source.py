@@ -113,6 +113,13 @@ class LiveSource(TelemetrySource):
         switch, port = where
         return ((ports.get(switch) or {}).get("ports") or {}).get(str(port))
 
+    @property
+    def profile(self):
+        """Mirror of ``SimulatedSource.profile`` (bandwidth precursors read the line rate)."""
+        from types import SimpleNamespace
+
+        return SimpleNamespace(line_rate_mbps=self.line_rate_mbps)
+
     def describe(self) -> dict:
         info = super().describe()
         info.update(controller=self._client.base_url, line_rate_mbps=self.line_rate_mbps)

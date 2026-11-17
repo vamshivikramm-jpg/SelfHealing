@@ -172,8 +172,8 @@ function tooltipHtml(t) {
 /* ── overview panels ─────────────────────────────────────────────────────── */
 function renderHeader(s) {
   const badge = $('modeBadge');
-  badge.textContent = s.mode === 'simulation' ? 'Simulation' : s.mode === 'offline' ? 'Offline preview' : 'Live';
-  badge.className = `badge ${s.mode === 'simulation' ? 'sim' : s.mode === 'offline' ? 'offline' : ''}`;
+  badge.textContent = s.mode === 'simulation' ? 'Simulation' : s.mode === 'offline' ? 'Offline preview' : 'Live lab';
+  badge.className = `badge ${s.mode === 'simulation' ? 'sim' : s.mode === 'offline' ? 'offline' : 'live'}`;
   const c = s.health_counts;
   $('healthPills').innerHTML = `<span class="pill ok">${c.HEALTHY || 0} healthy</span>
     <span class="pill warn">${c.DEGRADED || 0} degraded</span><span class="pill bad">${c.DOWN || 0} down</span>`;
@@ -183,6 +183,11 @@ function renderHeader(s) {
   if (s.mode === 'simulation') {
     banner.className = 'banner';
     banner.textContent = 'SIMULATION — every value is simulated; failures and attacks are synthetic. Use the Control tab to inject them.';
+  } else if (s.mode === 'live') {
+    banner.className = 'banner live';
+    const learning = s.status && s.status.learning
+      ? ` Learning normal traffic for prediction — failures and attacks open in ~${Math.ceil(s.status.warmup_remaining_s || 0)} s.` : '';
+    banner.textContent = 'LIVE LAB — Mininet + Open vSwitch + Ryu. Telemetry is measured, attacks are real programs in the hosts, failures change the emulated network.' + learning;
   } else {
     banner.className = 'banner warn';
     banner.textContent = 'OFFLINE PREVIEW — no network is running; telemetry is simulated. Start with VIEWER_MODE=simulation for the full closed loop.';
@@ -342,12 +347,15 @@ async function refreshTelemetry() {
 /* ── predictions ─────────────────────────────────────────────────────────── */
 function renderPredictions(s) {
   if (!s.prediction) {
-    $('predInfo').textContent = 'No predictor is running (simulation mode trains one at start-up; otherwise set VIEWER_MODEL_DIR).';
+    $('predInfo').textContent = s.mode === 'live'
+      ? 'The predictor is learning what normal looks like on the live network; it starts after the warm-up.'
+      : 'No predictor is running (simulation mode trains one at start-up; otherwise set VIEWER_MODEL_DIR).';
     $('predTable').innerHTML = '';
     return;
   }
   const st = s.prediction.status;
-  $('predInfo').textContent = `Model ${st.model} · alarm threshold ${fmt(st.threshold, 3)} · trained on simulated data with synthetic warning patterns`;
+  $('predInfo').textContent = `Model ${st.model} · alarm threshold ${fmt(st.threshold, 3)} · ` +
+    (s.mode === 'live' ? 'trained on this live network\'s normal traffic' : 'trained on simulated data with synthetic warning patterns');
   const rows = [...s.topology.links].sort((a, b) => (b.prediction || 0) - (a.prediction || 0));
   $('predTable').innerHTML = `<table><tr><th>Link</th><th>Health</th><th>Failure score</th><th></th><th>Status</th></tr>
     ${rows.map((l) => `<tr><td>${esc(l.name)}</td><td>${statusChip(l.status)}</td>
@@ -393,7 +401,7 @@ function renderHealing(s) {
       <td>${chip(i.type, i.type === 'MONITOR' ? '' : 'info')}</td><td>${esc(i.target)}<div class="detail">${esc(i.reason)}</div></td>
       <td class="num">${fmt(i.risk, 2)}</td><td>${stateChip(i.status)}</td></tr>`).join('')}</table>` : empty('No active decisions.');
   if (!s.healing) {
-    $('healStats').innerHTML = ''; $('healActions').innerHTML = empty('Self-healing runs only in simulation mode.');
+    $('healStats').innerHTML = ''; $('healActions').innerHTML = empty('Self-healing runs in simulation and live lab mode.');
     return;
   }
   const st = s.healing.stats;

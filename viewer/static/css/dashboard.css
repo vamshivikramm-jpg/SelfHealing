@@ -27,6 +27,8 @@ button, select, input { font: inherit; color: inherit; }
 .banner { background: #bc8cff14; border-bottom: 1px solid #bc8cff44; color: #d2b8ff; text-align: center;
   padding: 6px 12px; font-size: 12px; }
 .banner.warn { background: #d2992214; border-color: #d2992266; color: var(--warn); }
+.banner.live { background: #3fb95014; border-color: #3fb95055; color: #7ee787; }
+.badge.live { background: #3fb95022; color: #7ee787; }
 .banner-inline { color: var(--muted); margin-bottom: 12px; }
 
 /* tabs */

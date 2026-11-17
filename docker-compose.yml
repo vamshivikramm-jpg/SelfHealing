@@ -11,6 +11,10 @@ services:
     restart: unless-stopped
     networks:
       - emulation
+      - lab
+    ports:
+      # live dashboard (make live-dashboard); reachable at http://<vm-ip>:8000
+      - "${DASHBOARD_BIND:-0.0.0.0}:${DASHBOARD_PORT:-8000}:8000"
     volumes:
       # Dev mounts: live source/config for the topology generator and
       # the test suite (read-only).
@@ -51,3 +55,6 @@ networks:
   emulation:
     driver: bridge
     internal: true
+  # only to publish the dashboard port on the VM (internal networks cannot)
+  lab:
+    driver: bridge
