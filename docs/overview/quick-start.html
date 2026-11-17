@@ -73,6 +73,12 @@ make live-dashboard</div>
 </div>
 </div>
 
+<div class="ok"><b>Shortcut commands (easiest):</b> in any Mac terminal run <code>SelfHealingStart</code> — it stops whatever
+uses port 8000, starts the simulation dashboard in the background and opens it. <code>SelfHealingStop</code> stops it.
+For the live lab: <code>SelfHealingStart live</code> / <code>SelfHealingStop live</code> (needs the VM running);
+<code>SelfHealingStop all</code> stops both. (Set up once with
+<code>ln -sf ~/Documents/SelfHealing/scripts/SelfHealing{Start,Stop} ~/.local/bin/</code>.)</div>
+
 <h2>3. Check that it works</h2>
 <table>
   <tr><th style="width:34%">Look for</th><th>Meaning</th></tr>
@@ -134,7 +140,7 @@ make live-dashboard</div>
 <h2 class="break">6. If something goes wrong</h2>
 <table>
   <tr><th style="width:38%">Problem</th><th>Fix</th></tr>
-  <tr><td>Mac: "Address already in use"</td><td>another dashboard runs: Ctrl+C it, or <code>kill $(lsof -t -iTCP:8000 -sTCP:LISTEN)</code></td></tr>
+  <tr><td>Mac: "Address already in use"</td><td>another dashboard runs: <code>SelfHealingStop</code> (or just use <code>SelfHealingStart</code>, which frees the port itself)</td></tr>
   <tr><td>Live lab page does not open</td><td>on the VM: <code>docker compose ps</code> (both "healthy"?), then <code>make live-dashboard-logs</code></td></tr>
   <tr><td>"the predictor is still learning…"</td><td>normal for the first ~2.5 min of the live lab; wait for the countdown</td></tr>
   <tr><td>Live tests fail right away</td><td>the dashboard and the tests share one network: <code>make live-dashboard-stop</code> first</td></tr>

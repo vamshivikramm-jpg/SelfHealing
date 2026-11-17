@@ -28,3 +28,4 @@ data/
 
 # Experiment outputs (Module 9); curated results live in docs/results/
 /results/
+/.run/

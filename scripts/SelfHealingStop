@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+# Stop the Self-Healing dashboard.
+#
+#   SelfHealingStop            stop the local dashboard (whatever uses the port)
+#   SelfHealingStop live       stop the live-lab dashboard and network on the VM
+#   SelfHealingStop all        both
+#
+# Settings: SELFHEALING_PORT (default 8000), SELFHEALING_VM (default vamshi@172.16.120.137).
+set -uo pipefail
+
+REPO="$(cd "$(dirname "$(python3 -c 'import os,sys;print(os.path.realpath(sys.argv[1]))' "$0")")/.." && pwd)"
+PORT="${SELFHEALING_PORT:-8000}"
+VM="${SELFHEALING_VM:-vamshi@172.16.120.137}"
+MODE="${1:-sim}"
+QUIET=0
+[ "${2:-}" = "--quiet" ] && QUIET=1
+say() { [ "$QUIET" = 1 ] || echo "$@"; }
+
+stop_local() {
+  local pids
+  pids="$(lsof -t -iTCP:"$PORT" -sTCP:LISTEN 2>/dev/null | sort -u || true)"
+  if [ -z "$pids" ]; then
+    say "Nothing is running on port $PORT."
+  else
+    say "Stopping the dashboard on port $PORT (pid $(echo $pids | tr '\n' ' '))..."
+    kill $pids 2>/dev/null || true
+    for _ in 1 2 3 4 5 6 7 8 9 10; do
+      lsof -t -iTCP:"$PORT" -sTCP:LISTEN >/dev/null 2>&1 || break
+      sleep 0.5
+    done
+    if lsof -t -iTCP:"$PORT" -sTCP:LISTEN >/dev/null 2>&1; then
+      kill -9 $(lsof -t -iTCP:"$PORT" -sTCP:LISTEN) 2>/dev/null || true
+    fi
+    say "Stopped."
+  fi
+  rm -f "$REPO/.run/dashboard.pid"
+}
+
+stop_live() {
+  say "Stopping the live lab dashboard on $VM ..."
+  if ssh -o ConnectTimeout=8 "$VM" 'cd ~/SelfHealing && make live-dashboard-stop >/dev/null 2>&1'; then
+    say "Stopped (the containers keep running; the emulated network is cleaned up)."
+  else
+    echo "Could not reach $VM over ssh." >&2
+    return 1
+  fi
+}
+
+case "$MODE" in
+  sim|simulation|local) stop_local ;;
+  live|vm|lab) stop_live ;;
+  all) stop_local; stop_live ;;
+  -h|--help|help) sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//' ;;
+  *) echo "usage: SelfHealingStop [sim|live|all]" >&2; exit 2 ;;
+esac
