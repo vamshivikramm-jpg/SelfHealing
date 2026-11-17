@@ -39,6 +39,15 @@ Module 8 — simulation mode (VIEWER_MODE=simulation):
   Outside simulation mode the viewer stays read-only (no login exists).
   VIEWER_SIM_INTERVAL=2         simulation step (seconds)
   VIEWER_SIM_PREDICTOR=0        skip training the startup predictor
+
+Live lab mode (VIEWER_MODE=live, inside the mininet-net container):
+  The same closed loop and controls on the REAL emulated network: Mininet +
+  Open vSwitch + the self-healing Ryu app (network.live.runtime.LiveRuntime).
+  Failures change real links/switches, attacks are real programs in the
+  hosts, telemetry is measured, Zero Trust is enforced by the switches. The
+  predictor learns normal traffic first (failures/attacks refused meanwhile).
+  VIEWER_LIVE_TOPOLOGY=file     topology in network/config (default enterprise-redundant.yaml)
+  VIEWER_LIVE_WARMUP=120        seconds of normal traffic the predictor learns from
 """
 
 from __future__ import annotations
@@ -125,7 +134,10 @@ _DECISIONS = os.environ.get("VIEWER_DECISIONS", "") == "1"
 _decisions = None
 _decision_error = None
 _prediction_error = None
-_SIM_MODE = os.environ.get("VIEWER_MODE", "") == "simulation"
+_MODE = os.environ.get("VIEWER_MODE", "")
+_SIM_MODE = _MODE in ("simulation", "live")  # both run the closed-loop runtime
+_LIVE_TOPOLOGY = os.environ.get("VIEWER_LIVE_TOPOLOGY", "enterprise-redundant.yaml")
+_LIVE_WARMUP = float(os.environ.get("VIEWER_LIVE_WARMUP", "120"))
 _SIM_INTERVAL = float(os.environ.get("VIEWER_SIM_INTERVAL", "2"))
 _SIM_PREDICTOR = os.environ.get("VIEWER_SIM_PREDICTOR", "1") != "0"
 _runtime = None
@@ -142,8 +154,8 @@ class _SecurityView:
         self.engine = runtime.security
 
     def status(self) -> dict:
-        return {**self.engine.status(), "running": self._rt.running, "simulated": True,
-                "synthetic_attacks": True, "interval_s": self._rt.interval_s}
+        return {**self.engine.status(), "running": self._rt.running, "simulated": self._rt.simulated,
+                "synthetic_attacks": self._rt.simulated, "interval_s": self._rt.interval_s}
 
 
 class _DecisionView:
@@ -168,9 +180,17 @@ def _start_simulation() -> bool:
         return False
     try:
         from network.security.policy import ZeroTrustPolicy
-        from network.simulation.runtime import SimulationRuntime
 
-        _runtime = SimulationRuntime(str(_CONFIG_DIR), interval_s=_SIM_INTERVAL, use_predictor=_SIM_PREDICTOR)
+        if _MODE == "live":
+            from network.live.runtime import LiveRuntime
+
+            _runtime = LiveRuntime(str(_CONFIG_DIR), interval_s=_SIM_INTERVAL, topology_file=_LIVE_TOPOLOGY,
+                                   warmup_s=_LIVE_WARMUP, use_predictor=_SIM_PREDICTOR)
+        else:
+            from network.simulation.runtime import SimulationRuntime
+
+            _runtime = SimulationRuntime(str(_CONFIG_DIR), interval_s=_SIM_INTERVAL,
+                                         use_predictor=_SIM_PREDICTOR)
     except Exception as exc:  # noqa: BLE001 - reported by /api/health and /api/overview
         _sim_error = f"{type(exc).__name__}: {exc}"
         return False
@@ -183,6 +203,15 @@ def _start_simulation() -> bool:
     _predictor = _runtime.predictor
     _controller.event_bus.subscribe(_collect_event)
     return True
+
+def _active_predictor():
+    """The runtime's predictor (the live one appears after its warm-up)."""
+    return _runtime.predictor if _runtime is not None else _predictor
+
+
+def _mode() -> str:
+    return _runtime.mode if _runtime is not None else ("offline" if _OFFLINE_MODE else "live")
+
 
 # High-frequency events that would flood the dashboard event log.
 _UNLOGGED_EVENTS = {"TELEMETRY_COLLECTED"}
@@ -288,7 +317,7 @@ async def _lifespan(_app):
         yield
     finally:
         if _runtime is not None:
-            _runtime.stop()
+            getattr(_runtime, "shutdown", _runtime.stop)()
         else:
             _collector.stop()
             if _security is not None:
@@ -369,7 +398,7 @@ async def health():
     return {
         "status": "running",
         "module": "viewer v2.0",
-        "mode": "simulation" if _runtime is not None else ("offline" if _OFFLINE_MODE else "live"),
+        "mode": _mode(),
         "simulation_error": _sim_error,
         "controls_enabled": _runtime is not None,
         "offline_mode": _OFFLINE_MODE,
@@ -524,14 +553,16 @@ async def analytics_summary(window_s: float = 3600.0):
 @app.get("/api/predictions")
 async def predictions():
     _ensure_singletons()
-    if not _MODEL_DIR:
+    if not _MODEL_DIR and _runtime is None:
         raise HTTPException(
             status_code=404,
             detail="live prediction is off; start the viewer with VIEWER_MODEL_DIR=<model registry>",
         )
-    if _predictor is None:
-        raise HTTPException(status_code=503, detail=f"prediction unavailable: {_prediction_error}")
-    return {"status": _predictor.status(), "predictions": _predictor.predictions()}
+    predictor = _active_predictor()
+    if predictor is None:
+        reason = "still learning normal traffic" if getattr(_runtime, "learning", False) else _prediction_error
+        raise HTTPException(status_code=503, detail=f"prediction unavailable: {reason}")
+    return {"status": predictor.status(), "predictions": predictor.predictions()}
 
 
 # ---------------------------------------------------------------------------
@@ -611,8 +642,8 @@ async def decisions(limit: int = 50):
 
 @app.get("/api/healing")
 async def healing():
-    """Self-healing state. Only the simulation mode has a network to act on;
-    the live executor (Mininet + Ryu REST) is not built yet."""
+    """Self-healing state, in simulation and live lab mode (the read-only
+    preview has no network to act on)."""
     _ensure_singletons()
     if _runtime is None:
         raise HTTPException(
@@ -620,7 +651,8 @@ async def healing():
             detail=("self-healing runs only in simulation mode (VIEWER_MODE=simulation): the offline preview "
                     "has no network to act on and the live executor needs the Linux lab"),
         )
-    return {"simulated": True, "policy": _runtime.healing.policy.to_dict(), "stats": _runtime.healing.stats(),
+    return {"simulated": _runtime.simulated, "policy": _runtime.healing.policy.to_dict(),
+            "stats": _runtime.healing.stats(),
             "actions": list(reversed(_runtime.healing.history()))[:100]}
 
 
@@ -638,8 +670,9 @@ def _overview() -> dict:
     snap = _controller.topology_snapshot()
     health = {k: r.to_dict() for k, r in _collector.health().items()}
     preds = {}
-    if _predictor is not None:
-        preds = {p["target"]: p for p in _predictor.predictions()}
+    predictor = _active_predictor()
+    if predictor is not None:
+        preds = {p["target"]: p for p in predictor.predictions()}
     trust = {}
     sec = _security.engine if _security is not None else None
     if sec is not None and sec.last_ts is not None:
@@ -676,16 +709,16 @@ def _overview() -> dict:
     counts = Counter(r["status"] for r in health.values())
     out = {
         "time": ts,
-        "mode": "simulation" if _runtime is not None else ("offline" if _OFFLINE_MODE else "live"),
-        "simulated": True,
+        "mode": _mode(),
+        "simulated": _runtime.simulated if _runtime is not None else True,
         "status": _runtime.status() if _runtime is not None else {"mode": "offline" if _OFFLINE_MODE else "live"},
         "topology": {"name": snap.get("name"), "nodes": nodes, "links": links},
         "health_counts": dict(counts),
         "thresholds": _collector.evaluator.thresholds.to_dict(),
         "rerouted": rerouted,
-        "prediction": None if _predictor is None else {
-            "status": _predictor.status(),
-            "alerts": [p for p in _predictor.predictions() if p.get("alert")],
+        "prediction": None if predictor is None else {
+            "status": predictor.status(),
+            "alerts": [p for p in predictor.predictions() if p.get("alert")],
         },
         "security": None if sec is None else {
             "threat": sec.last_threat.to_dict() if sec.last_threat else None,

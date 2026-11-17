@@ -66,19 +66,28 @@ class RuntimeError_(ValueError):
 
 
 class SimulationRuntime:
+    """The closed loop on the wall clock. The live lab subclasses it
+    (:class:`network.live.runtime.LiveRuntime`) and swaps the back-ends
+    through ``_make_runner``, ``_make_loop`` and ``_start_network``."""
+
+    mode = "simulation"
+    simulated = True
+
     def __init__(self, config_dir: str = CONFIG_DIR, interval_s: float = 2.0, use_predictor: bool = True,
-                 seed: int = 0, clock: Callable[[], float] = time.time, predictor=None):
+                 seed: int = 0, clock: Callable[[], float] = time.time, predictor=None,
+                 topology_file: str = "enterprise-redundant.yaml"):
         self.config_dir = config_dir
         self.interval_s = float(interval_s)
         self._clock = clock
-        self.topology = load_topology_config(os.path.join(config_dir, "enterprise-redundant.yaml"))
+        self.topology_file = topology_file
+        self.topology = load_topology_config(os.path.join(config_dir, topology_file))
         self.registry = IdentityRegistry.from_config(self.topology, os.path.join(config_dir, "identities.yaml"))
         zt_policy = ZeroTrustPolicy.from_file(os.path.join(config_dir, "zero_trust_policy.yaml"))
         decision_policy = DecisionPolicy.from_file(os.path.join(config_dir, "decision_policy.yaml"))
 
         self.started_at = clock()
         plan = ScenarioPlan(duration_s=10 * 365 * 86400.0, step_s=self.interval_s, seed=seed)
-        self.runner = ScenarioRunner(plan, config=self.topology, start_time=self.started_at)
+        self.runner = self._make_runner(plan)
         self.runner.collector.interval_s = self.interval_s
         self.controller = self.runner.controller
         self.manager = self.runner.manager
@@ -94,8 +103,7 @@ class SimulationRuntime:
             self.predictor = self._train_predictor()
 
         security_plan = SecurityPlan(duration_s=plan.duration_s, step_s=self.interval_s, seed=seed)
-        self.loop = ClosedLoop(self.runner, self.registry, zt_policy, decision_policy, self.topology,
-                               security_plan, self.predictor)
+        self.loop = self._make_loop(zt_policy, decision_policy, security_plan)
         for engine in (self.loop.security, self.loop.decisions, self.loop.healing):
             engine.event_bus = self.bus
         self.service = self.loop.service
@@ -112,9 +120,19 @@ class SimulationRuntime:
         self._stop = threading.Event()
         self.ticks = 0
         self.recorder.attach()
-        self.controller.start_network()
+        self._start_network()
 
     # -- setup ---------------------------------------------------------------------
+
+    def _make_runner(self, plan: ScenarioPlan) -> ScenarioRunner:
+        return ScenarioRunner(plan, config=self.topology, start_time=self.started_at)
+
+    def _make_loop(self, zt_policy, decision_policy, security_plan) -> ClosedLoop:
+        return ClosedLoop(self.runner, self.registry, zt_policy, decision_policy, self.topology,
+                          security_plan, self.predictor)
+
+    def _start_network(self) -> None:
+        self.controller.start_network()
 
     def _train_predictor(self):
         from network.decision.evaluation import train_predictor
@@ -333,8 +351,8 @@ class SimulationRuntime:
 
     def status(self) -> dict:
         return {
-            "mode": "simulation",
-            "simulated": True,
+            "mode": self.mode,
+            "simulated": self.simulated,
             "running": self.running,
             "started_at": self.started_at,
             "uptime_s": self.now - self.started_at,

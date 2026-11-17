@@ -1,7 +1,7 @@
 PYTHON ?= python3
 NET_EXEC = docker compose exec -T mininet-net
 
-.PHONY: help up down logs config test unit smoke net-up net-down net-reset net-status net-test
+.PHONY: help up down logs config test unit smoke net-up net-down net-reset net-status net-test live-dashboard live-dashboard-stop live-dashboard-logs
 
 help:
 	@echo "Targets:"
@@ -16,6 +16,9 @@ help:
 	@echo "  net-reset  clean, rebuild and start the enterprise network"
 	@echo "  net-status show current network state (bridges/ports)"
 	@echo "  net-test   run the live integration tests + Module 1 unit tests in-container"
+	@echo "  live-dashboard       start the dashboard on the live lab (http://<vm-ip>:8000)"
+	@echo "  live-dashboard-stop  stop it (also stops the emulated network)"
+	@echo "  live-dashboard-logs  follow its log"
 
 up:
 	docker compose up -d --build
@@ -58,3 +61,18 @@ NET_UNIT = tests/unit/test_topology.py tests/unit/test_network_control.py tests/
 net-test:
 	docker compose up -d
 	$(NET_EXEC) bash -c "cd /workspace && PYTHONPATH=/workspace/network/src python3 -m pytest $(NET_UNIT) tests/integration -v -p no:cacheprovider"
+
+LIVE_DASHBOARD = cd /workspace && VIEWER_MODE=live PYTHONPATH=/workspace/network/src \
+	exec python3 -m uvicorn viewer.app:app --host 0.0.0.0 --port 8000 >/tmp/dashboard.log 2>&1
+
+live-dashboard:
+	docker compose up -d
+	docker compose exec -d mininet-net bash -c "pgrep -f '^python3 -m uvicorn viewer.app' >/dev/null || ($(LIVE_DASHBOARD))"
+	@echo "starting: the network comes up in ~20 s, then open http://<vm-ip>:8000"
+	@echo "(prediction learns normal traffic for the first ~3 minutes; make live-dashboard-logs shows progress)"
+
+live-dashboard-stop:
+	$(NET_EXEC) bash -c "pkill -TERM -f '^python3 -m uvicorn viewer.app' && sleep 8; mn -c >/dev/null 2>&1; echo stopped"
+
+live-dashboard-logs:
+	$(NET_EXEC) tail -n 50 -f /tmp/dashboard.log
