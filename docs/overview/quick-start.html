@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Self-Healing Network — Quick Start</title>
+<style>
+  @page { size: A4; margin: 14mm 14mm 14mm 14mm; }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 9.6pt;
+         line-height: 1.36; color: #1d2330; margin: 0; }
+  h1 { font-size: 21pt; color: #12305a; margin: 0 0 2pt; }
+  .lead { color: #3c4a63; font-size: 10.5pt; margin: 0 0 8pt; }
+  h2 { font-size: 12.5pt; color: #12305a; margin: 10pt 0 4pt; padding-bottom: 2pt; border-bottom: 1.6pt solid #2f6fbf; }
+  h3 { font-size: 11pt; color: #2f6fbf; margin: 8pt 0 3pt; }
+  p { margin: 3pt 0 5pt; }
+  ol, ul { margin: 2pt 0 5pt 16pt; padding: 0; }
+  li { margin: 1.5pt 0; }
+  table { width: 100%; border-collapse: collapse; margin: 4pt 0 8pt; font-size: 9.3pt; page-break-inside: avoid; }
+  th { background: #eaf1fb; color: #12305a; text-align: left; padding: 2.6pt 6pt; border: 0.6pt solid #c9d6ea; }
+  td { padding: 2.6pt 6pt; border: 0.6pt solid #d9e1ee; vertical-align: top; }
+  code { font-family: Menlo, Consolas, monospace; font-size: 8.8pt; background: #f2f4f8; padding: 0 3pt; border-radius: 3pt; }
+  .cmd { font-family: Menlo, Consolas, monospace; font-size: 9pt; background: #f4f7fc; border-left: 3pt solid #2f6fbf;
+         padding: 5pt 8pt; margin: 4pt 0 6pt; white-space: pre-wrap; page-break-inside: avoid; }
+  .note { background: #fff7e6; border: 0.8pt solid #f0c36d; border-radius: 4pt; padding: 5pt 9pt; margin: 6pt 0; }
+  .ok { background: #eef8f1; border: 0.8pt solid #9fd3ad; border-radius: 4pt; padding: 5pt 9pt; margin: 6pt 0; }
+  .two { display: flex; gap: 10pt; }
+  .two > div { flex: 1; }
+  .box { border: 0.8pt solid #c9d6ea; border-radius: 5pt; padding: 5pt 9pt 3pt; page-break-inside: avoid; }
+  .tag { display: inline-block; font-size: 7.8pt; font-weight: 700; color: #fff; background: #2f6fbf; border-radius: 8pt;
+         padding: 0.5pt 7pt; vertical-align: 1pt; }
+  .tag.live { background: #2e8b4a; }
+  .small { font-size: 8.8pt; color: #5b6880; }
+  .break { page-break-before: always; }
+</style>
+</head>
+<body>
+
+<h1>Self-Healing Network — Quick Start</h1>
+<p class="lead">How to start the system, check that it works, and what you can do with it. Details in
+<code>docs/deployment.md</code> and <code>docs/demo-script.md</code>.</p>
+
+<h2>1. Two ways to run it</h2>
+<table>
+  <tr><th style="width:22%"></th><th><span class="tag">SIMULATION</span> any Mac / Linux laptop</th><th><span class="tag live">LIVE LAB</span> Linux VM with Docker</th></tr>
+  <tr><td>Network</td><td>simulated in Python</td><td>real emulated network: Mininet + Open vSwitch + Ryu</td></tr>
+  <tr><td>Failures / attacks</td><td>synthetic</td><td>change the emulated network / real attack programs in the hosts</td></tr>
+  <tr><td>Telemetry</td><td>modelled</td><td>measured (probe packets, switch counters, real pings)</td></tr>
+  <tr><td>Ready after</td><td>~15 s</td><td>~20 s; failures and attacks after ~2.5 min (it first learns normal traffic)</td></tr>
+</table>
+
+<h2>2. Start it</h2>
+<div class="two">
+<div class="box">
+<h3><span class="tag">SIMULATION</span> on the Mac</h3>
+<div class="cmd">cd ~/Documents/SelfHealing
+VIEWER_MODE=simulation python3 -m uvicorn viewer.app:app --host 127.0.0.1 --port 8000</div>
+<p>Open <b>http://127.0.0.1:8000</b>. Stop with <b>Ctrl+C</b>.</p>
+<p class="small">Use the system <code>python3</code> (it has numpy, scikit-learn, mininet). "Address already in use" =
+another copy is running: stop it, or use <code>--port 8001</code>.</p>
+</div>
+<div class="box">
+<h3><span class="tag live">LIVE LAB</span> on the VM</h3>
+<ol>
+  <li>Start the Ubuntu VM in VMware.</li>
+  <li>From the Mac terminal:</li>
+</ol>
+<div class="cmd">ssh vamshi@172.16.120.137
+cd ~/SelfHealing
+docker compose up -d
+make live-dashboard</div>
+<p>Open <b>http://172.16.120.137:8000</b> on the Mac.<br>Stop: <code>make live-dashboard-stop</code></p>
+<p class="small">VM IP changed? On the VM run <code>ip -4 addr</code> and use the new address.</p>
+</div>
+</div>
+
+<h2>3. Check that it works</h2>
+<table>
+  <tr><th style="width:34%">Look for</th><th>Meaning</th></tr>
+  <tr><td>Banner <b>SIMULATION</b> (purple) or <b>LIVE LAB</b> (green)</td><td>the right mode is running</td></tr>
+  <tr><td>Header shows <b>20 healthy · 0 degraded · 0 down</b></td><td>every link and device is up</td></tr>
+  <tr><td>Live lab: "learning normal traffic … ~N s"</td><td>wait for the countdown; then the Control tab accepts failures and attacks</td></tr>
+  <tr><td><b>OFFLINE PREVIEW</b> banner</td><td>wrong Python on the Mac: use <code>/usr/bin/python3</code></td></tr>
+</table>
+<p><b>Automatic checks</b> (optional) — Mac, 536 tests in ~40 s: <code>PYTHONPATH=network/src python3 -m pytest tests/unit</code>
+· VM, 324 tests incl. 44 on the real network in ~8 min: <code>make live-dashboard-stop &amp;&amp; make net-test</code></p>
+
+<h2 class="break">4. What you can do — Control tab</h2>
+<h3>Inject a failure</h3>
+<table>
+  <tr><th style="width:20%">Kind</th><th>What happens</th><th style="width:34%">What the system does</th></tr>
+  <tr><td>Link down</td><td>a cable is disconnected</td><td>detects in seconds, reroutes traffic, reconnects, verifies</td></tr>
+  <tr><td>Switch / Router down</td><td>a switch stops</td><td>restarts it, reroutes if traffic used it</td></tr>
+  <tr><td>High latency</td><td>a link becomes slow (default 150 ms)</td><td>moves traffic to a better path</td></tr>
+  <tr><td>Packet loss</td><td>a link drops a share of packets (default 20 %)</td><td>moves traffic to a better path</td></tr>
+  <tr><td>Bandwidth limit</td><td>a link becomes narrow (default 5 Mbit/s)</td><td>balances load or reroutes</td></tr>
+</table>
+<ul>
+  <li><b>Physical damage</b> (tick box): software cannot repair it — the system must route around it and escalate to a
+      human. Best demo: <b>Link down · sw-a-sw-b · Physical damage</b>.</li>
+  <li><b>Warning ramp first</b> (seconds): the problem builds up slowly before it hits, so the <b>AI predictor</b> can warn
+      early (Predictions tab). Try <b>High latency · sw-a-sw-b · warning 60 s</b>.</li>
+  <li><b>Duration</b>: after it, a "technician" repairs the fault and the system moves traffic back (fail-back).</li>
+</ul>
+
+<h3>Launch an attack (from h1–h5)</h3>
+<table>
+  <tr><th style="width:20%">Attack</th><th>What the attacker does</th><th style="width:34%">Expected reaction</th></tr>
+  <tr><td>Port scan</td><td>tries many ports on a server</td><td>port_scan / policy violation → trust drops → quarantine</td></tr>
+  <tr><td>Brute force</td><td>many wrong-password logins</td><td>auth_failures → trust drops</td></tr>
+  <tr><td>Identity spoofing</td><td>sends packets with another device's IP and MAC</td><td>dropped at the first switch, fingerprint_mismatch → quarantine</td></tr>
+  <tr><td>Lateral movement</td><td>tries services its role may not use</td><td>blocked by policy, policy_violation</td></tr>
+  <tr><td>Flood</td><td>very high packet rate at the web server</td><td>volume / flood anomaly → quarantine</td></tr>
+</table>
+<p class="small">Wait ~40 s after start-up before a flood (the detectors first learn normal traffic volumes).</p>
+
+<h3>Stay in control</h3>
+<ul>
+  <li><b>Autonomy L1</b> = every action waits for you (approve / reject in <b>Decisions &amp; Healing</b>);
+      <b>L2</b> (default) = reversible actions run automatically; <b>L3</b> = everything automatic.</li>
+  <li><b>Run demo</b> plays a ~7-minute script: cable cut, switch failure, predicted latency, flood, spoofing.</li>
+</ul>
+
+<h2>5. Where to watch</h2>
+<table>
+  <tr><th style="width:22%">Tab</th><th>Shows</th></tr>
+  <tr><td>Overview</td><td>live map: red = down, yellow = degraded, highlighted = rerouted or predicted to fail</td></tr>
+  <tr><td>Telemetry / Analytics</td><td>latency, loss, traffic per link over time; click a link on the map for charts</td></tr>
+  <tr><td>Predictions</td><td>AI failure score per link and the alarm threshold</td></tr>
+  <tr><td>Zero Trust</td><td>trust score per device, detected anomalies, quarantines and blocks</td></tr>
+  <tr><td>Decisions &amp; Healing</td><td>each decision → executed → <b>verified</b> / rolled back / escalated; approve / reject buttons</td></tr>
+  <tr><td>Timeline</td><td>every event in order</td></tr>
+</table>
+
+<h2 class="break">6. If something goes wrong</h2>
+<table>
+  <tr><th style="width:38%">Problem</th><th>Fix</th></tr>
+  <tr><td>Mac: "Address already in use"</td><td>another dashboard runs: Ctrl+C it, or <code>kill $(lsof -t -iTCP:8000 -sTCP:LISTEN)</code></td></tr>
+  <tr><td>Live lab page does not open</td><td>on the VM: <code>docker compose ps</code> (both "healthy"?), then <code>make live-dashboard-logs</code></td></tr>
+  <tr><td>"the predictor is still learning…"</td><td>normal for the first ~2.5 min of the live lab; wait for the countdown</td></tr>
+  <tr><td>Live tests fail right away</td><td>the dashboard and the tests share one network: <code>make live-dashboard-stop</code> first</td></tr>
+  <tr><td>VM build error "server misbehaving"</td><td>the VM's DNS hiccupped; run the same command again</td></tr>
+  <tr><td>Cannot paste into the VM window</td><td>use <code>ssh vamshi@&lt;vm-ip&gt;</code> from the Mac terminal instead</td></tr>
+</table>
+<div class="note"><b>Safety:</b> the dashboard has no login and its controls change the network. Keep the VM on its
+private network; do not expose port 8000 to the internet.</div>
+
+</body>
+</html>

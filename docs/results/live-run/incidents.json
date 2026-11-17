@@ -1,0 +1,244 @@
+{
+  "incidents": [
+    {
+      "type": "failure",
+      "round": 0,
+      "label": "physical cut sw-a<->sw-b",
+      "kind": "link",
+      "target": "sw-a-sw-b",
+      "physical": true,
+      "start": 1794909858.3588376,
+      "end": 1794909918.3588376,
+      "affected_pairs": 4,
+      "detection_s": 2.1,
+      "predicted_lead_s": null,
+      "first_action_s": 2.0,
+      "verified_s": 6.0,
+      "restored_s": 2.0,
+      "lost_fraction": 0.0,
+      "actions": [
+        {
+          "type": "RESTORE",
+          "state": "FAILED_BACK"
+        },
+        {
+          "type": "REROUTE",
+          "state": "FAILED_BACK"
+        },
+        {
+          "type": "RESTORE",
+          "state": "ESCALATED"
+        }
+      ],
+      "invalid": false
+    },
+    {
+      "type": "failure",
+      "round": 0,
+      "label": "link disconnected sw-a<->sw-b",
+      "kind": "link",
+      "target": "sw-a-sw-b",
+      "physical": false,
+      "start": 1794909964.407774,
+      "end": 1794910024.407774,
+      "affected_pairs": 4,
+      "detection_s": 2.1,
+      "predicted_lead_s": null,
+      "first_action_s": 2.0,
+      "verified_s": 6.0,
+      "restored_s": 2.0,
+      "lost_fraction": 0.0,
+      "actions": [
+        {
+          "type": "RESTORE",
+          "state": "FAILED_BACK"
+        },
+        {
+          "type": "REROUTE",
+          "state": "FAILED_BACK"
+        }
+      ],
+      "invalid": false
+    },
+    {
+      "type": "failure",
+      "round": 0,
+      "label": "rtr-core down",
+      "kind": "router",
+      "target": "rtr-core",
+      "physical": false,
+      "start": 1794910070.4536126,
+      "end": 1794910130.4536126,
+      "affected_pairs": 0,
+      "detection_s": 2.1,
+      "predicted_lead_s": null,
+      "first_action_s": 2.0,
+      "verified_s": 6.0,
+      "restored_s": null,
+      "lost_fraction": null,
+      "actions": [
+        {
+          "type": "RESTORE",
+          "state": "FAILED_BACK"
+        }
+      ],
+      "invalid": false
+    },
+    {
+      "type": "failure",
+      "round": 0,
+      "label": "150 ms latency on sw-a<->sw-b after a 60 s warning ramp",
+      "kind": "latency",
+      "target": "sw-a-sw-b",
+      "physical": false,
+      "start": 1794910236.4960117,
+      "end": 1794910296.4960117,
+      "affected_pairs": 4,
+      "detection_s": 0.0,
+      "predicted_lead_s": 46.0,
+      "first_action_s": 34.0,
+      "verified_s": 38.0,
+      "restored_s": 0.0,
+      "lost_fraction": 0.0,
+      "actions": [
+        {
+          "type": "REROUTE",
+          "state": "FAILED_BACK"
+        }
+      ],
+      "invalid": false
+    },
+    {
+      "type": "failure",
+      "round": 0,
+      "label": "20 % loss on sw-a<->sw-b",
+      "kind": "packet_loss",
+      "target": "sw-a-sw-b",
+      "physical": false,
+      "start": 1794910342.5486648,
+      "end": 1794910402.5486648,
+      "affected_pairs": 4,
+      "detection_s": 4.0,
+      "predicted_lead_s": null,
+      "first_action_s": 20.0,
+      "verified_s": 26.0,
+      "restored_s": 24.0,
+      "lost_fraction": 0.103,
+      "actions": [
+        {
+          "type": "REROUTE",
+          "state": "FAILED_BACK"
+        }
+      ],
+      "invalid": false
+    },
+    {
+      "type": "attack",
+      "round": 0,
+      "kind": "port_scan",
+      "attacker": "h5",
+      "start": 1794910448.5858073,
+      "detection_s": null,
+      "quarantine_s": null,
+      "anomaly_kinds": [],
+      "other_devices_quarantined": [],
+      "invalid": true
+    },
+    {
+      "type": "attack",
+      "round": 0,
+      "kind": "brute_force",
+      "attacker": "h3",
+      "start": 1794911967.7188709,
+      "detection_s": 4.0,
+      "quarantine_s": 6.0,
+      "anomaly_kinds": [
+        "auth_failures"
+      ],
+      "other_devices_quarantined": [],
+      "invalid": false
+    },
+    {
+      "type": "attack",
+      "round": 0,
+      "kind": "spoofing",
+      "attacker": "h4",
+      "start": 1794912053.7444549,
+      "detection_s": 0.0,
+      "quarantine_s": 2.0,
+      "anomaly_kinds": [
+        "fingerprint_mismatch",
+        "policy_violation"
+      ],
+      "other_devices_quarantined": [],
+      "invalid": false
+    },
+    {
+      "type": "attack",
+      "round": 0,
+      "kind": "lateral_movement",
+      "attacker": "h2",
+      "start": 1794912139.7738094,
+      "detection_s": 2.0,
+      "quarantine_s": 24.0,
+      "anomaly_kinds": [
+        "policy_violation"
+      ],
+      "other_devices_quarantined": [],
+      "invalid": false
+    },
+    {
+      "type": "attack",
+      "round": 0,
+      "kind": "flood",
+      "attacker": "h1",
+      "start": 1794912225.8077986,
+      "detection_s": 2.0,
+      "quarantine_s": null,
+      "anomaly_kinds": [
+        "volume_anomaly"
+      ],
+      "other_devices_quarantined": [],
+      "invalid": false
+    }
+  ],
+  "summary": {
+    "failures": 5,
+    "detected": 5,
+    "detection_s": {
+      "n": 5,
+      "median": 2.1,
+      "max": 4.0
+    },
+    "verified_actions": 5,
+    "restored": 4,
+    "restored_s": {
+      "n": 4,
+      "median": 2.0,
+      "max": 24.0
+    },
+    "predicted": 1,
+    "attacks": 4,
+    "attacks_detected": 4,
+    "attack_detection_s": {
+      "n": 4,
+      "median": 2.0,
+      "max": 4.0
+    },
+    "attackers_quarantined": 3,
+    "false_quarantines": [],
+    "invalid_incidents": [
+      "port_scan"
+    ]
+  },
+  "settings": {
+    "topology": "enterprise-redundant.yaml",
+    "interval_s": 2.0,
+    "fault_s": 60.0,
+    "attack_s": 40.0,
+    "gap_s": 45.0,
+    "rounds": 1,
+    "predictor_threshold": 0.8,
+    "autonomy": "L2"
+  }
+}

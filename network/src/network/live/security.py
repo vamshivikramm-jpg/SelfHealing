@@ -167,12 +167,13 @@ class LiveTraffic:
     """Starts and stops the programs in the Mininet hosts."""
 
     def __init__(self, controller, registry, config_dir: str, topology_file: str = "enterprise.yaml",
-                 log_dir: str = "/tmp"):
+                 log_dir: str = "/tmp/selfhealing"):  # not /tmp/*.log: Mininet's cleanup deletes those
         self.controller = controller
         self.registry = registry
         self.config_dir = config_dir
         self.topology_file = topology_file
         self.log_dir = log_dir
+        os.makedirs(log_dir, exist_ok=True)
         self.processes: Dict[str, subprocess.Popen] = {}
         self.attacks: List[dict] = []
 

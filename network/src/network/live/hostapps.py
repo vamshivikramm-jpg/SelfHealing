@@ -1,6 +1,6 @@
 """Programs that run INSIDE Mininet hosts (live P5): services, users, attacks.
 
-    python3 -m network.live.hostapps serve  --name srv-web-1 --ports 80,443,22 --log /tmp/sh-auth-srv-web-1.log
+    python3 -m network.live.hostapps serve  --name srv-web-1 --ports 80,443,22 --log /tmp/selfhealing/sh-auth-srv-web-1.log
     python3 -m network.live.hostapps client --name h2 --config-dir network/config
     python3 -m network.live.hostapps attack --kind port_scan --target 10.0.1.20 --duration 60
 

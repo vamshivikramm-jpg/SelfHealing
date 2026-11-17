@@ -52,14 +52,14 @@
   <div class="meta">
     Final-year major project · Modules 1–9<br>
     Repository: github.com/vamshivikramm-jpg/SelfHealing<br>
-    Status: all nine modules implemented and evaluated <b>in simulation</b>; Module 1 verified on a real emulated
-    network (Linux VM); Modules 2–8 on the real network are the next step.
+    Status: all nine modules implemented and evaluated <b>in simulation</b>, and the <b>whole closed loop now also
+    runs on a real emulated network</b> (Mininet + Open vSwitch + Ryu on a Linux VM), with its own dashboard.
   </div>
   <div class="note" style="margin-top:28pt">
-    <b>One thing to remember while reading:</b> every result in this document comes from a <b>simulated</b> network
-    that runs in Python on a laptop. Failures, early-warning patterns and attacks were <b>designed by us</b>.
-    The real emulated network (Mininet + Open vSwitch + Ryu) now runs on a Linux VM for Module 1 only;
-    Modules 2–8 have not yet been run on it.
+    <b>One thing to remember while reading:</b> there are two kinds of results. The <b>main evaluation</b> (10 runs per
+    condition, statistics) uses a <b>simulated</b> network in Python, with failures, early-warning patterns and attacks
+    <b>designed by us</b>. A <b>short live-lab run</b> repeats every failure and attack on the real emulated network
+    (measured telemetry, real attack programs, rules enforced by the switches). Section 7 shows both, clearly labelled.
   </div>
   <h2 style="margin-top:22pt">Contents</h2>
   <ol class="toc">
@@ -138,7 +138,7 @@ switches, and generated "campus" networks of up to 547 devices.</p>
   <rect x="20" y="256" width="620" height="66" rx="6" fill="#fdf5ec" stroke="#e8a33d"/>
   <text x="34" y="274" font-size="11" font-weight="700" fill="#b8741a">SDN NETWORK LAYER</text>
   <text x="330" y="300" text-anchor="middle" font-size="11.5">Ryu controller · OpenFlow · Open vSwitch · Mininet · hosts and servers</text>
-  <text x="330" y="315" text-anchor="middle" font-size="9.5" fill="#5b6880">(simulated in Python today; real on a Linux VM later)</text>
+  <text x="330" y="315" text-anchor="middle" font-size="9.5" fill="#5b6880">(simulated in Python, or the real emulated network on the Linux VM)</text>
 </svg>
 </div>
 
@@ -228,7 +228,7 @@ our experiments show exactly this (about 2 false reports per 3-hour run).</div>
   <tr><td><b>5. Zero Trust security</b></td><td>Device identities, trust scores, behaviour detectors, default-deny policy, switch rules.</td><td>Trust levels, blocks, quarantines</td></tr>
   <tr><td><b>6. Decision engine</b></td><td>Combines all signals into risk, plans paths, picks actions, applies safety checks and approval levels.</td><td>Actions ("intents")</td></tr>
   <tr><td><b>7. Self-healing</b></td><td>Executes actions, verifies them against the real network, undoes/retries/escalates, fails back.</td><td>Verified repairs</td></tr>
-  <tr><td><b>8. Dashboard</b></td><td>Web dashboard with live topology, charts, approvals and a simulation mode with controls to inject failures and attacks.</td><td>The demo</td></tr>
+  <tr><td><b>8. Dashboard</b></td><td>Web dashboard with live topology, charts, approvals and controls to inject failures and attacks — in simulation mode, or in live-lab mode on the real emulated network.</td><td>The demo</td></tr>
   <tr><td><b>9. Evaluation &amp; deployment</b></td><td>Reproducible experiments (10 runs each), statistics, figures, results chapter, deployment guide, automatic tests (CI).</td><td>Evidence for the report</td></tr>
 </table>
 
@@ -236,10 +236,10 @@ our experiments show exactly this (about 2 false reports per 3-hour run).</div>
 <table>
   <tr><th>Folder</th><th>Contents</th></tr>
   <tr><td><code>network/config/</code></td><td>Topology, identities, Zero Trust policy, decision policy (all YAML, editable)</td></tr>
-  <tr><td><code>network/src/network/</code></td><td><code>control</code>, <code>failure</code>, <code>telemetry</code>, <code>analytics</code>, <code>prediction</code>, <code>security</code>, <code>decision</code>, <code>healing</code>, <code>simulation</code>, <code>experiments</code></td></tr>
+  <tr><td><code>network/src/network/</code></td><td><code>control</code>, <code>failure</code>, <code>telemetry</code>, <code>analytics</code>, <code>prediction</code>, <code>security</code>, <code>decision</code>, <code>healing</code>, <code>simulation</code>, <code>experiments</code>, <code>live</code> (the real-network back-ends)</td></tr>
   <tr><td><code>controller/apps/</code></td><td>Ryu application: loop-safe routing, proxy ARP, blocks, statistics, REST API</td></tr>
   <tr><td><code>viewer/</code></td><td>FastAPI backend + dashboard (HTML/JS/CSS)</td></tr>
-  <tr><td><code>tests/unit/</code></td><td>469 automated tests</td></tr>
+  <tr><td><code>tests/</code></td><td>536 unit tests (any computer) + 44 live integration tests (on the VM)</td></tr>
   <tr><td><code>docs/</code></td><td>Results chapter, deployment guide, demo script, research document</td></tr>
 </table>
 
@@ -413,6 +413,38 @@ Without verification our system reported 100 % success while 2 repairs per run d
 reads the true state, not what the controller believes.</p>
 <p><span class="why">Why:</span> without it every repair would trivially succeed and verification would prove nothing.</p></div>
 
+<h2>Live lab — measuring and acting on the real network</h2>
+<div class="algo"><h3>Active link probing (one-way delay, BFD-style status) <span class="tag">Ryu</span></h3>
+<p><b>What:</b> five times a second the controller sends a small probe packet across every switch-to-switch link (in both
+directions) and an ARP question to every computer. The time each answer takes, minus half the controller↔switch delay
+(measured with OpenFlow echo messages), gives the link's <b>one-way delay</b>; probes without an answer within 1 s count as
+<b>loss</b>. A link that loses every probe is marked <b>down</b> even if its cable still shows "connected".</p>
+<p><span class="why">Why:</span> switch counters cannot tell you delay or loss, and a link can look "up" while carrying
+nothing (a cut fibre behind a converter). Measuring the path itself is how real operators find these faults (the idea of
+BFD), and it is what lets our system see "physical" faults the controller does not know about.</p></div>
+<div class="algo"><h3>Zero Trust decided per flow inside the switches <span class="tag">Ryu</span></h3>
+<p><b>What:</b> the first packet of every new connection from a computer goes to the controller, which checks it against
+the Zero Trust rules: is the device on that switch port using its <b>own</b> MAC and IP, may its role reach that server and
+port, is it quarantined? It then installs an allow or drop rule for that connection only. Replies to an allowed connection
+are recognised and let through (like a stateful firewall). The rules' counters give real per-connection traffic volumes,
+which feed the behaviour detectors.</p>
+<p><span class="why">Why:</span> Zero Trust means "never trust, always verify" <i>every request</i>. Deciding each new
+connection where it enters the network enforces that literally, blocks spoofing at the first switch, and keeps the decision
+cost to one controller round trip per connection instead of per packet.</p></div>
+<div class="algo"><h3>Predictor that learns "normal" from the live network</h3>
+<p><b>What:</b> for the first minutes after start-up the system records feature rows (the same rolling-window features as
+in simulation) from the healthy live network, fits the z-score model on them, and sets the alarm threshold just above the
+highest scores normal traffic produced. Failures and attacks are refused until it has finished learning.</p>
+<p><span class="why">Why:</span> real measurements have different scales and noise from the simulation, so a model trained
+on simulated data would mis-fire. Learning the network's own normal behaviour is simple, needs no labelled failures, and
+is honest: the model only claims "this is unusual for <i>this</i> network".</p></div>
+<div class="algo"><h3>Physical-fault emulation with <code>tc netem</code></h3>
+<p><b>What:</b> a "physical" fault sets 100 % packet loss on both ends of a link with Linux traffic control, without
+telling the controller; the controller still believes the link is fine.</p>
+<p><span class="why">Why:</span> it reproduces the hardest real case — the control software thinks everything is fine
+while traffic dies — so we can test that only <i>measurement</i> (probes, pings) detects it and that healing routes around
+it instead of "fixing" something that is not broken in software.</p></div>
+
 <h2>Module 9 — Evaluation statistics</h2>
 <div class="algo"><h3>Confidence intervals, Wilcoxon test, Holm correction</h3>
 <p><b>What:</b> each experiment runs 10 times with different seeds. We report the mean with a 95 % confidence interval
@@ -429,9 +461,9 @@ that an attacking device is ranked above a normal one.</p></div>
 <h2>Process</h2>
 <ol>
   <li><b>Inspection first.</b> We reviewed the existing code (Module 1), ran its tests, and listed what really worked versus what was only documented.</li>
-  <li><b>One module at a time,</b> each on its own git branch, ending in a reviewed pull request that was merged into <code>main</code> (9 pull requests so far).</li>
+  <li><b>One module at a time,</b> each on its own git branch, ending in a reviewed pull request that was merged into <code>main</code> (16 pull requests so far: 9 modules, then the live lab in 6 steps).</li>
   <li><b>Plan → approve → build.</b> Each module started with a written plan and the design choices that needed the team's approval.</li>
-  <li><b>Tests with every change.</b> 469 automated tests; every commit kept them passing. Since Module 9, GitHub Actions runs them automatically on Python 3.9 and 3.11.</li>
+  <li><b>Tests with every change.</b> 536 unit tests run on every pull request by GitHub Actions (Python 3.9 and 3.11); 44 more run against the real emulated network on the VM (<code>make net-test</code>).</li>
   <li><b>Evaluate, don't assume.</b> Each module ends with an evaluation command that produces numbers; Module 9 repeats them 10 times with statistics.</li>
   <li><b>Honesty labels.</b> Simulated and synthetic data are flagged in every dataset, report and dashboard screen.</li>
 </ol>
@@ -439,9 +471,9 @@ that an attacking device is ranked above a normal one.</p></div>
 <h2>Why simulation first</h2>
 <p>The real emulated network (Mininet + Open vSwitch) only runs on Linux, and development happened on a Mac. Rather than
 wait, we built a faithful <b>simulated data plane</b> behind the same interfaces, so every module could be built and
-tested now and switched to the real network later with minimal changes. When the Linux VM came up, the first live run
-of Module 1 found four problems no simulation could (container build, Ryu installation, two test bugs); all were fixed
-and 221 tests now pass on the real network.</p>
+tested now and switched to the real network later with minimal changes. That paid off: the live lab reuses the same
+decision engine, Zero Trust engine, healing engine and dashboard unchanged — only the "back-ends" (how we measure and how
+we act) were rewritten for the real network. Running for real still found problems no simulation could (next table).</p>
 
 <h2>Problems we found and fixed along the way</h2>
 <table>
@@ -454,6 +486,13 @@ and 221 tests now pass on the real network.</p>
   <tr><td>Cooldown delaying a real repair</td><td>Found by running the live dashboard; hard failures are now exempt.</td></tr>
   <tr><td>Predictor false alarms at start-up</td><td>It now waits until it has a full window of history.</td></tr>
   <tr><td>Results not saved in the repository</td><td>An ignore rule hid <code>docs/results/</code>; fixed and committed the archived run.</td></tr>
+  <tr><td colspan="2"><b>Found only on the real network</b></td></tr>
+  <tr><td>Restarted switch never reconnected</td><td>Mininet cached the old controller IDs; refreshed them after a restart.</td></tr>
+  <tr><td>No traffic between subnets</td><td>Routed packets carry the <i>sender's</i> gateway address; the last switch now rewrites any packet not addressed to the host.</td></tr>
+  <tr><td>One link always "dead"</td><td>Its probe packet was short enough to be padded with zeros, breaking parsing; padding is stripped.</td></tr>
+  <tr><td>Servers flagged as port scanners</td><td>Their replies were treated as new requests; replies to allowed connections are now recognised.</td></tr>
+  <tr><td>Old attacks seen again</td><td>The controller remembered flows from the previous run; new sessions ignore anything older than themselves.</td></tr>
+  <tr><td>Device still blocked after a restart</td><td>A quarantine rule survived in the controller; the live runtime clears old blocks and pinned paths at start.</td></tr>
 </table>
 
 <h2>Tools and technologies</h2>
@@ -462,6 +501,7 @@ Cytoscape.js (dashboard) · Mininet, Open vSwitch, Ryu, Docker (live network) ·
 
 <!-- ================= 7 ================= -->
 <h1>7. Results in one page</h1>
+<h2>Main evaluation (simulated network)</h2>
 <p class="small">Simulated network · 10 runs per condition, 3 simulated hours each · mean [95 % confidence interval] ·
 full details in <code>docs/results.md</code>.</p>
 
@@ -481,31 +521,47 @@ full details in <code>docs/results.md</code>.</p>
 <div class="figure"><img src="../results/full-run/figures/healing_mttr.svg" style="width:88%"></div>
 <div class="caption">Mean time to repair by mode (bars: mean; whiskers: 95 % confidence interval).</div>
 
+<h2>Live lab (real emulated network, one round)</h2>
+<p class="small">Mininet + Open vSwitch + Ryu on the VM · every failure kind and every attack once · measured telemetry,
+real attack programs · details in <code>docs/results-live.md</code>.</p>
+<table>
+  <tr><th>Question</th><th>Answer on the live network</th></tr>
+  <tr><td>Are failures detected?</td><td><b>5 of 5</b>, in about <b>2 s</b> (one step) — including a physical cut the controller itself could not see.</td></tr>
+  <tr><td>Are they healed?</td><td>Every action <b>verified by real pings</b>; traffic restored in <b>2 s</b> for cuts and disconnects, 24 s for 20 % packet loss; physical damage correctly escalated to a human; routes failed back after repair.</td></tr>
+  <tr><td>Does prediction work live?</td><td>The model learnt from the live network's normal traffic flagged a slowly rising latency <b>46 s before</b> the failure; healing still acted after the fault started (detection is already fast).</td></tr>
+  <tr><td>Are real attacks caught?</td><td><b>4 of 4</b> valid attacks detected in 0–4 s; spoofed packets dropped at the first switch; <b>no innocent device quarantined</b>. The flood was detected but its high-trust sender (the admin PC) not quarantined — a policy choice.</td></tr>
+</table>
+<p class="small">The port-scan attack of this run is excluded: the VM was suspended during it. Port scans are covered by
+the live integration tests (detected, attacker quarantined, verified by ping).</p>
+
 <!-- ================= 8 ================= -->
 <h1>8. Limitations and next steps</h1>
 <h2>Be clear about these in the report and presentation</h2>
 <ul>
-  <li><b>Simulated network.</b> Only Module 1 (topology, Ryu forwarding, connectivity) is verified on the real emulated
-      network; every result in Section 7 comes from the simulation.</li>
+  <li><b>Simulated main evaluation.</b> The statistics in Section 7 come from the simulation; the live lab adds one short
+      run of each incident (no confidence intervals) on an emulated, not physical, network of 9 devices.</li>
   <li><b>Designed data.</b> Failures, warning patterns and attacks were created by us; models learn what we built in.</li>
   <li><b>Rules we wrote.</b> "Correct decisions" means agreement with our own rules.</li>
   <li><b>Simplifications.</b> Instant detection, traffic load that does not follow routes, failures that never overlap, a small main topology.</li>
 </ul>
 
-<h2>Next steps (in order)</h2>
+<h2>What is done, and what could come next</h2>
 <ol>
-  <li><s>Set up the Linux VM and run the real network</s> — <b>done</b>: Module 1 runs live, 221 tests pass (<code>make net-test</code>).</li>
-  <li><b>Fix the known real-network gaps:</b> re-enabling devices, applying latency/loss/bandwidth for real (TCLink), scenario state names.</li>
-  <li><b>Live telemetry:</b> read OpenFlow port statistics from Ryu and run ping/iperf probes.</li>
-  <li><b>Live execution:</b> send healing and Zero Trust rules to the switches through Ryu.</li>
-  <li><b>Loop-safe forwarding and routing between subnets</b>, so the redundant topology can run for real.</li>
-  <li><b>Re-run the experiments</b> on the real network and put both sets of results side by side.</li>
+  <li><s>Run the real network on a Linux VM</s> — done.</li>
+  <li><s>Real failure control, loop-safe routing between subnets, measured telemetry, real healing actions, Zero Trust
+      enforced by the switches, real attacks, live dashboard</s> — done (live lab, 44 integration tests).</li>
+  <li><b>Optional:</b> repeat the live run several times for confidence intervals; run the generated campus topologies live;
+      add a login to the dashboard before putting it on any shared network.</li>
 </ol>
 
 <h2>How to run the demo</h2>
+<p><b>Simulation (any laptop):</b></p>
 <div class="formula">VIEWER_MODE=simulation python3 -m uvicorn viewer.app:app --host 127.0.0.1 --port 8000
 then open http://127.0.0.1:8000  →  Control tab  →  "Run demo"</div>
-<p>The full walkthrough is in <code>docs/demo-script.md</code>.</p>
+<p><b>Live lab (on the VM, in ~/SelfHealing):</b></p>
+<div class="formula">docker compose up -d &amp;&amp; make live-dashboard
+then open http://&lt;vm-ip&gt;:8000 — wait ~2.5 min while it learns normal traffic — Control tab</div>
+<p>The walkthrough is in <code>docs/demo-script.md</code>; live-lab setup in <code>docs/deployment.md</code>.</p>
 
 <!-- ================= 9 ================= -->
 <h1>9. Glossary</h1>
@@ -527,6 +583,9 @@ then open http://127.0.0.1:8000  →  Control tab  →  "Run demo"</div>
   <tr><td>Confidence interval</td><td>A range that very likely contains the true average, given run-to-run variation.</td></tr>
   <tr><td>p-value</td><td>How surprising a difference would be if there were really no effect; below 0.05 = statistically significant.</td></tr>
   <tr><td>Simulated / synthetic</td><td>Produced by our model rather than measured on a real network.</td></tr>
+  <tr><td>Live lab</td><td>Our real emulated network: Mininet hosts and Open vSwitch switches on a Linux VM, controlled by Ryu.</td></tr>
+  <tr><td>Probe</td><td>A small test packet sent only to measure a link's delay and loss.</td></tr>
+  <tr><td>netem</td><td>Linux traffic-control feature that adds delay or loss to a network interface.</td></tr>
 </table>
 
 </body>
