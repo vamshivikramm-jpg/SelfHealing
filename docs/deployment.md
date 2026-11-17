@@ -8,7 +8,7 @@ are in: everything verified so far ran in **setting A**.
 | Network | in-memory simulated data plane | Mininet + Open vSwitch + Ryu in Docker |
 | Telemetry | `SimulatedSource` (reads the simulated network's real state) | `LiveSource` (active probes + OpenFlow counters) |
 | Self-healing execution | `SimulatedExecutor` | `LiveExecutor` (Ryu REST: pinned paths, drop rules) |
-| Status | Modules 1–9 tested (unit tests, evaluations, dashboard) | **Module 1, failure control, Ryu app, live telemetry and healing actions verified live** (32 integration tests); live closed loop not yet; Modules 2–8 not yet |
+| Status | Modules 1–9 tested (unit tests, evaluations, dashboard) | **Module 1, failure control, Ryu app, live telemetry and healing actions verified live** (32 integration tests); the live closed loop (dashboard) is not wired yet |
 
 ## A. Simulation setup
 
