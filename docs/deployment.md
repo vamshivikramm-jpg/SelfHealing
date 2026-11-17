@@ -8,7 +8,7 @@ are in: everything verified so far ran in **setting A**.
 | Network | in-memory simulated data plane | Mininet + Open vSwitch + Ryu in Docker |
 | Telemetry | `SimulatedSource` (reads the simulated network's real state) | `LiveSource` (active probes + OpenFlow counters) |
 | Self-healing execution | `SimulatedExecutor` | `LiveExecutor` (Ryu REST: pinned paths, drop rules) |
-| Status | Modules 1–9 tested (unit tests, evaluations, dashboard) | **Modules 1, 2, 5 and 7's live back-ends verified** (40 integration tests: failures, routing, telemetry, healing actions, Zero Trust on real attacks); the live closed loop (dashboard) is not wired yet |
+| Status | Modules 1–9 tested (unit tests, evaluations, dashboard) | **Full closed loop verified live** (44 integration tests) and the **live dashboard** runs on the VM (`make live-dashboard`, http://&lt;vm-ip&gt;:8000) |
 
 ## A. Simulation setup
 
@@ -171,10 +171,46 @@ a block is enforced and lifted; and each of the five real attacks is
 detected for its attacker (port_scan, auth_failures, fingerprint_mismatch,
 policy_violation, volume/flood).
 
-### Still needed for the live dashboard
+### Live dashboard (P6) — verified
 
-**Live runtime (P6)**: wire these back-ends into the closed loop and serve
-the dashboard from the VM.
+The dashboard runs **inside the `mininet-net` container on the VM** and
+drives the real emulated network (`VIEWER_MODE=live`,
+`network.live.runtime.LiveRuntime`): the same closed loop and controls as
+simulation mode, with every back-end live (table in that module's
+docstring). Compose publishes it on the VM's port 8000.
+
+```bash
+# on the VM (ssh vamshi@172.16.120.137), in ~/SelfHealing
+docker compose up -d             # both containers healthy
+make live-dashboard              # starts the network + dashboard in the container
+make live-dashboard-logs         # follow its log (Ctrl+C to leave)
+make live-dashboard-stop         # stops dashboard, host programs and the network
+```
+
+Then open **http://172.16.120.137:8000** on the Mac (any machine that can
+reach the VM). What to expect:
+
+1. ~20 s: the network starts, services and normal users start in the hosts,
+   the banner shows **LIVE LAB**.
+2. First ~2.5 minutes: the predictor learns normal traffic from the live
+   network (`VIEWER_LIVE_WARMUP`, default 120 s, after a 60 s feature
+   window). Failures and attacks are refused meanwhile, with a countdown.
+3. Then everything in the Control tab works on the real network. Verified
+   end to end: a physical cut of sw-a↔sw-b was detected by the link probes in
+   ~5 s, REROUTE moved the 4 affected client/server paths via rtr-core and was
+   verified by real pings, RESTORE could not fix physical damage and was
+   escalated, and after the repair the routes failed back. A real port scan
+   from h5 got h5 quarantined in two steps; the quarantine was verified by a
+   ping that got no answer.
+
+Notes: `make net-test` and the live dashboard drive the same Mininet, so stop
+the dashboard before running tests (`tests/integration/test_live_runtime.py`
+skips itself while it runs). The dashboard has **no login** and its controls
+change the lab network: keep the VM on a private network, or publish it on
+one interface only with `DASHBOARD_BIND=<ip>` in `.env`. The live runtime
+clears blocks and pinned paths left in the controller by an earlier session.
+The VM's DNS (VMware NAT, 172.16.120.2) sometimes fails; if an image build
+says "server misbehaving", run it again.
 
 ## Continuous integration
 

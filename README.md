@@ -26,20 +26,28 @@ with a simulation mode that runs the whole closed loop and lets you inject
 failures and attacks, approve decisions and change autonomy. **Module 9
 (evaluation)**: reproducible 10-seed experiments with statistics, results in
 [`docs/results.md`](docs/results.md), setup in
-[`docs/deployment.md`](docs/deployment.md). Inter-subnet routing and every
-live-network step are still to do (see docs/deployment.md).
+[`docs/deployment.md`](docs/deployment.md). **Live lab**: the whole closed
+loop also runs on the real emulated network (Mininet + Open vSwitch + the
+self-healing Ryu app on a Linux VM), with measured telemetry, real traffic
+and attacks, Zero Trust enforced by the switches, and the dashboard served
+from the VM.
 
 ### Dashboard
 
-```bash
-VIEWER_MODE=simulation python3 -m uvicorn viewer.app:app --host 127.0.0.1 --port 8000
-```
+Two ways to run it:
 
-Open http://127.0.0.1:8000 (startup takes ~10 s while a predictor is
-trained). Simulation mode needs the `mininet` Python package (imports
-only), numpy and scikit-learn — the macOS system `python3` used during
-development has them; the project `.venv` does not, and there the
-dashboard falls back to the read-only offline preview.
+| | Simulation (any Mac/Linux) | Live lab (Linux VM with Docker) |
+|---|---|---|
+| Start | `VIEWER_MODE=simulation python3 -m uvicorn viewer.app:app --host 127.0.0.1 --port 8000` | on the VM: `docker compose up -d && make live-dashboard` |
+| Open | http://127.0.0.1:8000 | http://&lt;vm-ip&gt;:8000 |
+| Network | simulated data plane | Mininet + OVS + Ryu |
+| Failures / attacks | synthetic | change the emulated network / real programs in the hosts |
+| Ready after | ~15 s (predictor trained on simulated runs) | ~20 s; failures and attacks after ~2.5 min (predictor learns live traffic) |
+
+Simulation mode needs the `mininet` Python package (imports only), numpy
+and scikit-learn — the macOS system `python3` has them; the project
+`.venv` does not, and there the dashboard falls back to the read-only
+offline preview. Live lab setup: [`docs/deployment.md`](docs/deployment.md).
 
 ## Stack
 
