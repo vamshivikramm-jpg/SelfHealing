@@ -26,5 +26,5 @@ htmlcov/
 data/
 *.db
 
-# Experiment outputs (Module 9); curated results live in docs/
-results/
+# Experiment outputs (Module 9); curated results live in docs/results/
+/results/

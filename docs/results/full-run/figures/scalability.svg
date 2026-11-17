@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 360" font-family="Helvetica, Arial, sans-serif">
+<rect width="760" height="360" fill="#fff"/>
+<text x="64" y="24" font-size="15" font-weight="bold" fill="#222">Processing time per 5 s step vs network size</text>
+<line x1="64" x2="610" y1="304.0" y2="304.0" stroke="#e5e5e5"/>
+<text x="58" y="308.0" font-size="11" text-anchor="end" fill="#555">0</text>
+<line x1="64" x2="610" y1="251.2" y2="251.2" stroke="#e5e5e5"/>
+<text x="58" y="255.2" font-size="11" text-anchor="end" fill="#555">100</text>
+<line x1="64" x2="610" y1="198.4" y2="198.4" stroke="#e5e5e5"/>
+<text x="58" y="202.4" font-size="11" text-anchor="end" fill="#555">200</text>
+<line x1="64" x2="610" y1="145.6" y2="145.6" stroke="#e5e5e5"/>
+<text x="58" y="149.6" font-size="11" text-anchor="end" fill="#555">300</text>
+<line x1="64" x2="610" y1="92.8" y2="92.8" stroke="#e5e5e5"/>
+<text x="58" y="96.8" font-size="11" text-anchor="end" fill="#555">400</text>
+<line x1="64" x2="610" y1="40.0" y2="40.0" stroke="#e5e5e5"/>
+<text x="58" y="44.0" font-size="11" text-anchor="end" fill="#555">500</text>
+<text x="64.0" y="320" font-size="11" text-anchor="middle" fill="#555">13</text>
+<text x="224.4" y="320" font-size="11" text-anchor="middle" fill="#555">39</text>
+<text x="319.9" y="320" font-size="11" text-anchor="middle" fill="#555">75</text>
+<text x="418.1" y="320" font-size="11" text-anchor="middle" fill="#555">147</text>
+<text x="610.0" y="320" font-size="11" text-anchor="middle" fill="#555">547</text>
+<text x="337.0" y="346" font-size="12" text-anchor="middle" fill="#333">devices (log scale)</text>
+<text x="14" y="172.0" font-size="12" fill="#333" transform="rotate(-90 14 172.0)" text-anchor="middle">ms per step</text>
+<path d="M64.0,303.9 L224.4,303.4 L319.9,302.9 L418.1,301.3 L610.0,295.8" fill="none" stroke="#2f6fbf" stroke-width="2"/>
+<circle cx="64.0" cy="303.9" r="3" fill="#2f6fbf"/>
+<circle cx="224.4" cy="303.4" r="3" fill="#2f6fbf"/>
+<circle cx="319.9" cy="302.9" r="3" fill="#2f6fbf"/>
+<circle cx="418.1" cy="301.3" r="3" fill="#2f6fbf"/>
+<circle cx="610.0" cy="295.8" r="3" fill="#2f6fbf"/>
+<line x1="624" x2="644" y1="50" y2="50" stroke="#2f6fbf" stroke-width="3"/>
+<text x="650" y="54" font-size="11" fill="#333">telemetry</text>
+<path d="M64.0,304.0 L224.4,303.8 L319.9,303.6 L418.1,303.1 L610.0,300.4" fill="none" stroke="#d1495b" stroke-width="2"/>
+<circle cx="64.0" cy="304.0" r="3" fill="#d1495b"/>
+<circle cx="224.4" cy="303.8" r="3" fill="#d1495b"/>
+<circle cx="319.9" cy="303.6" r="3" fill="#d1495b"/>
+<circle cx="418.1" cy="303.1" r="3" fill="#d1495b"/>
+<circle cx="610.0" cy="300.4" r="3" fill="#d1495b"/>
+<line x1="624" x2="644" y1="68" y2="68" stroke="#d1495b" stroke-width="3"/>
+<text x="650" y="72" font-size="11" fill="#333">delivery</text>
+<path d="M64.0,303.9 L224.4,303.4 L319.9,302.2 L418.1,297.3 L610.0,209.9" fill="none" stroke="#3a9d5d" stroke-width="2"/>
+<circle cx="64.0" cy="303.9" r="3" fill="#3a9d5d"/>
+<circle cx="224.4" cy="303.4" r="3" fill="#3a9d5d"/>
+<circle cx="319.9" cy="302.2" r="3" fill="#3a9d5d"/>
+<circle cx="418.1" cy="297.3" r="3" fill="#3a9d5d"/>
+<circle cx="610.0" cy="209.9" r="3" fill="#3a9d5d"/>
+<line x1="624" x2="644" y1="86" y2="86" stroke="#3a9d5d" stroke-width="3"/>
+<text x="650" y="90" font-size="11" fill="#333">zero_trust</text>
+<path d="M64.0,303.8 L224.4,303.8 L319.9,303.7 L418.1,302.9 L610.0,300.3" fill="none" stroke="#e8a33d" stroke-width="2"/>
+<circle cx="64.0" cy="303.8" r="3" fill="#e8a33d"/>
+<circle cx="224.4" cy="303.8" r="3" fill="#e8a33d"/>
+<circle cx="319.9" cy="303.7" r="3" fill="#e8a33d"/>
+<circle cx="418.1" cy="302.9" r="3" fill="#e8a33d"/>
+<circle cx="610.0" cy="300.3" r="3" fill="#e8a33d"/>
+<line x1="624" x2="644" y1="104" y2="104" stroke="#e8a33d" stroke-width="3"/>
+<text x="650" y="108" font-size="11" fill="#333">decisions</text>
+<path d="M64.0,304.0 L224.4,304.0 L319.9,304.0 L418.1,304.0 L610.0,304.0" fill="none" stroke="#7b5ea7" stroke-width="2"/>
+<circle cx="64.0" cy="304.0" r="3" fill="#7b5ea7"/>
+<circle cx="224.4" cy="304.0" r="3" fill="#7b5ea7"/>
+<circle cx="319.9" cy="304.0" r="3" fill="#7b5ea7"/>
+<circle cx="418.1" cy="304.0" r="3" fill="#7b5ea7"/>
+<circle cx="610.0" cy="304.0" r="3" fill="#7b5ea7"/>
+<line x1="624" x2="644" y1="122" y2="122" stroke="#7b5ea7" stroke-width="3"/>
+<text x="650" y="126" font-size="11" fill="#333">healing</text>
+<path d="M64.0,303.0 L224.4,300.9 L319.9,296.8 L418.1,285.8 L610.0,167.3" fill="none" stroke="#3aa1a8" stroke-width="2"/>
+<circle cx="64.0" cy="303.0" r="3" fill="#3aa1a8"/>
+<circle cx="224.4" cy="300.9" r="3" fill="#3aa1a8"/>
+<circle cx="319.9" cy="296.8" r="3" fill="#3aa1a8"/>
+<circle cx="418.1" cy="285.8" r="3" fill="#3aa1a8"/>
+<circle cx="610.0" cy="167.3" r="3" fill="#3aa1a8"/>
+<line x1="624" x2="644" y1="140" y2="140" stroke="#3aa1a8" stroke-width="3"/>
+<text x="650" y="144" font-size="11" fill="#333">total</text>
+<text x="64" y="358" font-size="10" fill="#777">generated campus topologies; simulated; single Python process</text>
+</svg>
