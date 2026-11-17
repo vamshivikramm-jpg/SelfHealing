@@ -17,7 +17,8 @@ Forwarding model (one distributed router):
   controller computes a shortest-path tree over the *live* links towards
   the host's switch, so every switch's next hop is consistent and loop
   free. At the last switch, routed packets (sent to the gateway MAC) get
-  their MACs rewritten and TTL decremented; same-subnet packets go as is.
+  their MACs rewritten and TTL decremented (any packet not already
+  addressed to the host's MAC); same-subnet packets go as is.
 * An operator/self-healing engine may pin a path for a destination; the
   pinned switches use it, all others follow the tree into it.
 """
@@ -35,7 +36,8 @@ IPV4 = 0x0800
 ACL_TABLE = 0
 FWD_TABLE = 1
 PRIO_BLOCK = 1000
-PRIO_EGRESS = 120
+PRIO_EGRESS = 120          # last switch, packet already addressed to the host
+PRIO_EGRESS_ROUTED = 110   # last switch, packet addressed to a gateway: rewrite MACs
 PRIO_TRANSIT = 100
 PRIO_ARP = 200
 COOKIE_BASE = 0x5000          # table-miss / ARP / drop rules
@@ -261,7 +263,8 @@ class ForwardingState:
         rules = [_rule(dst_dpid, PRIO_EGRESS, {"eth_type": IPV4, "ipv4_dst": dst_ip, "eth_dst": host["mac"]},
                        [("output", port)])]
         if gw_mac:
-            rules.append(_rule(dst_dpid, PRIO_EGRESS, {"eth_type": IPV4, "ipv4_dst": dst_ip, "eth_dst": gw_mac},
+            # routed: the sender addressed its own subnet's gateway MAC
+            rules.append(_rule(dst_dpid, PRIO_EGRESS_ROUTED, {"eth_type": IPV4, "ipv4_dst": dst_ip},
                                [("set_eth_src", gw_mac), ("set_eth_dst", host["mac"]), ("dec_ttl",),
                                 ("output", port)]))
         for dpid, out in sorted(nxt.items()):

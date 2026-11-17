@@ -69,7 +69,9 @@ def test_plan_routes_inter_subnet_with_rewrite():
     assert by[(RTR, None)]["actions"] == [("output", 2)]
     assert by[(SWA, None)]["actions"] == [("output", 1)]
     assert by[(SWB, "02:00:0a:00:02:0a")]["actions"] == [("output", 2)]
-    assert by[(SWB, "02:fe:0a:00:02:01")]["actions"] == [
+    egress = [r for r in rules if r["dpid"] == SWB and r["priority"] == L.PRIO_EGRESS_ROUTED]
+    assert len(egress) == 1 and "eth_dst" not in egress[0]["match"]
+    assert egress[0]["actions"] == [
         ("set_eth_src", "02:fe:0a:00:02:01"), ("set_eth_dst", "02:00:0a:00:02:0a"), ("dec_ttl",), ("output", 2)]
 
 
@@ -168,5 +170,5 @@ def test_covers_guards_resubmission():
     _locate_all(st)
     rules = st.plan("10.0.2.10")
     assert L.covers(rules, RTR, "anything")
-    assert L.covers(rules, SWB, "02:fe:0a:00:02:01")
-    assert not L.covers(rules, SWB, "02:00:00:00:00:99")
+    assert L.covers(rules, SWB, "02:fe:0a:00:01:01")  # sent to subnet-a's gateway
+    assert not L.covers(rules, 0x99, "02:00:00:00:00:99")  # unknown switch
