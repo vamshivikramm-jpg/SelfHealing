@@ -41,7 +41,7 @@ case "$MODE" in
       >"$REPO/.run/dashboard.log" 2>&1 &
     echo $! >"$REPO/.run/dashboard.pid"
     if wait_for "http://127.0.0.1:$PORT" 60; then
-      echo "Ready: http://127.0.0.1:$PORT   (stop with: SelfHealingStop)"
+      echo "Ready: http://127.0.0.1:$PORT   (sign in: root / toor unless VIEWER_USER/VIEWER_PASSWORD are set; stop with: SelfHealingStop)"
       open_url "http://127.0.0.1:$PORT"
     else
       echo "The dashboard did not come up within 60 s. Last log lines:" >&2
@@ -55,7 +55,7 @@ case "$MODE" in
     ssh -o ConnectTimeout=8 "$VM" 'cd ~/SelfHealing && docker compose up -d >/dev/null 2>&1 && make live-dashboard-stop >/dev/null 2>&1; make live-dashboard >/dev/null 2>&1' \
       || { echo "Could not reach $VM over ssh. Is the VM running and awake?" >&2; exit 1; }
     if wait_for "http://$host:8000" 90; then
-      echo "Ready: http://$host:8000   (failures and attacks open after ~2.5 min of learning)"
+      echo "Ready: http://$host:8000   (sign in: root / toor; failures and attacks open after ~2.5 min of learning)"
       echo "Stop with: SelfHealingStop live"
       open_url "http://$host:8000"
     else

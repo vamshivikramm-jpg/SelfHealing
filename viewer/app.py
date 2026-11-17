@@ -36,7 +36,8 @@ Module 8 — simulation mode (VIEWER_MODE=simulation):
   scripted demo, approve/reject decisions, autonomy level). Needs an
   environment with the `mininet` Python package (imports only), numpy and
   scikit-learn - e.g. the system python3. Everything shown is SIMULATED.
-  Outside simulation mode the viewer stays read-only (no login exists).
+  Outside simulation mode the viewer stays read-only. Every mode needs a
+  signed-in operator (see "Login" below).
   VIEWER_SIM_INTERVAL=2         simulation step (seconds)
   VIEWER_SIM_PREDICTOR=0        skip training the startup predictor
 
@@ -48,6 +49,12 @@ Live lab mode (VIEWER_MODE=live, inside the mininet-net container):
   predictor learns normal traffic first (failures/attacks refused meanwhile).
   VIEWER_LIVE_TOPOLOGY=file     topology in network/config (default enterprise-redundant.yaml)
   VIEWER_LIVE_WARMUP=120        seconds of normal traffic the predictor learns from
+
+Login (viewer/auth.py): every page and API call except /login and
+/api/health needs a signed-in operator.
+  VIEWER_USER / VIEWER_PASSWORD  the account (default root / toor)
+  VIEWER_SESSION_HOURS=12        session lifetime
+  VIEWER_AUTH=0                  switch the login off (development only)
 """
 
 from __future__ import annotations
@@ -61,9 +68,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 # ---------------------------------------------------------------------------
@@ -330,6 +337,24 @@ async def _lifespan(_app):
 
 app = FastAPI(title="Enterprise Network Viewer", version="2.0.0", lifespan=_lifespan)
 
+try:  # run as package (uvicorn viewer.app:app, tests) or from inside viewer/
+    from viewer.auth import COOKIE as _SESSION_COOKIE, Auth, safe_next
+except ImportError:  # pragma: no cover
+    from auth import COOKIE as _SESSION_COOKIE, Auth, safe_next  # type: ignore
+
+# Every page and API call needs a signed-in operator (see viewer/auth.py).
+_auth = Auth()
+
+
+@app.middleware("http")
+async def _require_login(request: Request, call_next):
+    decision = _auth.gate(request.url.path, request.url.query, request.cookies.get(_SESSION_COOKIE))
+    if decision is None:
+        return await call_next(request)
+    if "redirect" in decision:
+        return RedirectResponse(decision["redirect"], status_code=303)
+    return JSONResponse(decision["json"], status_code=decision["status"])
+
 _STATIC_DIR = Path(__file__).resolve().parent / "static"
 app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
 
@@ -385,6 +410,51 @@ def _device_counts():
 @app.get("/", response_class=HTMLResponse)
 async def index():
     return HTMLResponse((_TEMPLATE_DIR / "index.html").read_text())
+
+
+@app.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request, next: str = "/"):  # noqa: A002 - query parameter name
+    if not _auth.enabled or _auth.session(request.cookies.get(_SESSION_COOKIE)):
+        return RedirectResponse(safe_next(next), status_code=303)
+    return HTMLResponse((_TEMPLATE_DIR / "login.html").read_text())
+
+
+# ---------------------------------------------------------------------------
+# Sessions
+# ---------------------------------------------------------------------------
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+    next: Optional[str] = None
+
+
+@app.post("/api/login")
+async def login(req: LoginRequest, request: Request):
+    address = request.client.host if request.client else "unknown"
+    result = _auth.login(req.username, req.password, address)
+    if not result["ok"]:
+        return JSONResponse({"detail": result["detail"]}, status_code=result["status"])
+    response = JSONResponse({"user": result["user"], "next": safe_next(req.next)})
+    response.set_cookie(_SESSION_COOKIE, result["token"], max_age=int(_auth.ttl_s), httponly=True,
+                        samesite="strict", path="/")
+    return response
+
+
+@app.post("/api/logout")
+async def logout(request: Request):
+    _auth.logout(request.cookies.get(_SESSION_COOKIE))
+    response = JSONResponse({"ok": True})
+    response.delete_cookie(_SESSION_COOKIE, path="/")
+    return response
+
+
+@app.get("/api/me")
+async def me(request: Request):
+    if not _auth.enabled:
+        return {"auth": False, "user": None}
+    s = _auth.session(request.cookies.get(_SESSION_COOKIE)) or {}
+    return {"auth": True, "user": s.get("user"), "expires": s.get("expires")}
 
 
 # ---------------------------------------------------------------------------

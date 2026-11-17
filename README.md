@@ -44,6 +44,9 @@ Two ways to run it:
 | Failures / attacks | synthetic | change the emulated network / real programs in the hosts |
 | Ready after | ~15 s (predictor trained on simulated runs) | ~20 s; failures and attacks after ~2.5 min (predictor learns live traffic) |
 
+**Login**: the dashboard asks for a user name and password — `root` /
+`toor` by default (set `VIEWER_USER` / `VIEWER_PASSWORD` to change them).
+
 **Shortcuts** (no more killing the port by hand): `scripts/SelfHealingStart`
 frees port 8000, starts the dashboard in the background, waits until it is
 ready and opens the browser; `scripts/SelfHealingStop` stops it. Add `live`

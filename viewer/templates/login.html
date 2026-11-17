@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="dark">
+  <title>Sign in · Self-Healing Network</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%236d7cff'/%3E%3Cpath d='M9 17l4 4 10-11' stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/static/css/dashboard.css?v=2.6">
+</head>
+<body class="login-body">
+<main class="login">
+
+  <!-- brand side: the same live-network look as the dashboard -->
+  <section class="login-hero" aria-hidden="true">
+    <div class="brand">
+      <div class="brand-mark"><svg viewBox="0 0 24 24"><path d="M12 2l8 4v6c0 5-3.4 8.6-8 10-4.6-1.4-8-5-8-10V6l8-4z"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></svg></div>
+      <div class="brand-text"><b>Self-Healing</b><span>Zero Trust Network</span></div>
+    </div>
+    <svg class="hero-net" viewBox="0 0 400 300">
+      <g class="hn-links">
+        <line x1="200" y1="50" x2="110" y2="150"/><line x1="200" y1="50" x2="290" y2="150"/>
+        <line class="reroute" x1="110" y1="150" x2="290" y2="150"/>
+        <line x1="110" y1="150" x2="50" y2="245"/><line x1="110" y1="150" x2="110" y2="250"/>
+        <line x1="110" y1="150" x2="170" y2="245"/><line x1="290" y1="150" x2="250" y2="250"/>
+        <line x1="290" y1="150" x2="340" y2="245"/>
+      </g>
+      <g class="hn-nodes">
+        <circle class="router" cx="200" cy="50" r="15"/><circle class="switch" cx="110" cy="150" r="12"/>
+        <circle class="switch" cx="290" cy="150" r="12"/><circle class="host" cx="50" cy="245" r="8"/>
+        <circle class="host" cx="110" cy="250" r="8"/><circle class="server" cx="170" cy="245" r="9"/>
+        <circle class="host" cx="250" cy="250" r="8"/><circle class="host" cx="340" cy="245" r="8"/>
+      </g>
+      <circle class="hn-pulse" cx="200" cy="50" r="15"/>
+    </svg>
+    <div class="hero-copy">
+      <h2>Detect. Decide. Heal. Verify.</h2>
+      <p>An SDN network that predicts failures, enforces Zero Trust on every flow and repairs itself — with you in control.</p>
+      <ul class="hero-points">
+        <li><span class="dot ok"></span>Verified self-healing</li>
+        <li><span class="dot predict"></span>AI failure prediction</li>
+        <li><span class="dot reroute"></span>Per-flow Zero Trust</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- form side -->
+  <section class="login-panel">
+    <form class="login-card" id="loginForm" novalidate>
+      <div class="brand login-brand-mobile">
+        <div class="brand-mark"><svg viewBox="0 0 24 24"><path d="M12 2l8 4v6c0 5-3.4 8.6-8 10-4.6-1.4-8-5-8-10V6l8-4z"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></svg></div>
+        <div class="brand-text"><b>Self-Healing</b><span>Zero Trust Network</span></div>
+      </div>
+      <div class="login-head">
+        <h1>Welcome back</h1>
+        <p>Sign in to the operator console.</p>
+      </div>
+
+      <div class="login-error" id="loginError" role="alert" hidden>
+        <svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>
+        <span id="loginErrorText"></span>
+      </div>
+
+      <label class="field">
+        <span>User name</span>
+        <div class="input-icon">
+          <svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+          <input id="username" name="username" type="text" autocomplete="username" autocapitalize="off" spellcheck="false" required>
+        </div>
+      </label>
+      <label class="field">
+        <span>Password</span>
+        <div class="input-icon">
+          <svg class="i" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+          <input id="password" name="password" type="password" autocomplete="current-password" required>
+          <button type="button" class="reveal" id="reveal" aria-label="Show password" aria-pressed="false">
+            <svg class="i eye" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+        <small class="caps" id="caps" hidden>Caps Lock is on</small>
+      </label>
+
+      <button type="submit" class="btn primary login-submit" id="submitBtn">
+        <span class="spinner" aria-hidden="true"></span><span class="label">Sign in</span>
+        <svg class="i arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </button>
+      <p class="login-foot"><svg class="i" viewBox="0 0 24 24"><path d="M12 2l8 4v6c0 5-3.4 8.6-8 10-4.6-1.4-8-5-8-10V6l8-4z"/></svg>
+        Session cookie only · signs out when the dashboard restarts</p>
+    </form>
+  </section>
+</main>
+
+<script>
+(() => {
+  const form = document.getElementById('loginForm');
+  const user = document.getElementById('username');
+  const pass = document.getElementById('password');
+  const btn = document.getElementById('submitBtn');
+  const err = document.getElementById('loginError');
+  // the browser keeps a #page fragment on the login URL itself: carry it over
+  const asked = new URLSearchParams(location.search).get('next') || '/';
+  const next = asked.includes('#') ? asked : asked + location.hash;
+  user.focus();
+
+  const showError = (text) => {
+    document.getElementById('loginErrorText').textContent = text;
+    err.hidden = false;
+    form.classList.remove('shake'); void form.offsetWidth; form.classList.add('shake');
+  };
+  document.getElementById('reveal').addEventListener('click', (e) => {
+    const show = pass.type === 'password';
+    pass.type = show ? 'text' : 'password';
+    e.currentTarget.setAttribute('aria-pressed', String(show));
+    e.currentTarget.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+    e.currentTarget.classList.toggle('on', show);
+    pass.focus();
+  });
+  pass.addEventListener('keyup', (e) => {
+    document.getElementById('caps').hidden = !(e.getModifierState && e.getModifierState('CapsLock'));
+  });
+  [user, pass].forEach((el) => el.addEventListener('input', () => { err.hidden = true; }));
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!user.value || !pass.value) { showError('Enter your user name and password.'); (user.value ? pass : user).focus(); return; }
+    btn.disabled = true; btn.classList.add('busy');
+    try {
+      const r = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: user.value, password: pass.value, next }) });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.detail || 'Sign in failed.');
+      btn.classList.add('done');
+      document.body.classList.add('leaving');
+      setTimeout(() => location.replace(data.next || '/'), window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 280);
+    } catch (ex) {
+      showError(ex.message);
+      pass.select();
+      btn.disabled = false; btn.classList.remove('busy');
+    }
+  });
+})();
+</script>
+</body>
+</html>

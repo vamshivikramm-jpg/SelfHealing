@@ -74,6 +74,7 @@ const ICONS = {
   server: '<rect x="3" y="3" width="18" height="7" rx="1.5"/><rect x="3" y="14" width="18" height="7" rx="1.5"/><path d="M7 6.5h.01M7 17.5h.01"/>',
   inbox: '<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5.1L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.9A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.7 1.1z"/>',
   wifi: '<path d="M5 12.6a10 10 0 0 1 14 0M8.5 16.1a5 5 0 0 1 7 0M12 19.5h.01M1.4 9a16 16 0 0 1 21.2 0"/>',
+  'log-out': '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>',
   link: '<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>',
 };
 function icon(name, cls = 'i') {
@@ -104,13 +105,20 @@ function statusChip(s) { return chip(s, { HEALTHY: 'ok', DEGRADED: 'warn', DOWN:
 const STATE_CLASS = { VERIFIED: 'ok', FAILED_BACK: 'ok', VERIFYING: 'info', EXECUTING: 'info', RETRY: 'warn',
   ROLLED_BACK: 'warn', ESCALATED: 'bad', FAILED: 'bad', APPROVED: 'ok', PENDING_APPROVAL: 'warn' };
 function stateChip(s) { return chip(s, STATE_CLASS[s] || ''); }
+/* A 401 means the session ended (expired, signed out elsewhere, dashboard
+ * restarted): go to the login page and come back here afterwards. */
+function toLogin() {
+  location.replace(`/login?next=${encodeURIComponent(location.pathname + location.search + location.hash)}`);
+}
 async function getJSON(url) {
   const r = await fetch(url);
+  if (r.status === 401) { toLogin(); throw new Error('Signed out'); }
   if (!r.ok) { const e = new Error((await r.json().catch(() => ({}))).detail || r.statusText); e.status = r.status; throw e; }
   return r.json();
 }
 async function postJSON(url, body) {
   const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
+  if (r.status === 401) { toLogin(); throw new Error('Signed out'); }
   const data = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(data.detail || r.statusText);
   return data;
@@ -266,7 +274,7 @@ function toggleNotif(open) {
     setTimeout(() => { panel.hidden = true; panel.classList.remove('closing'); }, REDUCED.matches ? 0 : 140);
   }
 }
-$('notifBtn').addEventListener('click', (e) => { e.stopPropagation(); toggleNotif($('notifPanel').hidden); });
+$('notifBtn').addEventListener('click', (e) => { e.stopPropagation(); if (typeof toggleUser === 'function') toggleUser(false); toggleNotif($('notifPanel').hidden); });
 document.addEventListener('click', (e) => { if (!e.target.closest('.notif')) toggleNotif(false); });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { toggleNotif(false); setNav(false); } });
 $('notifList').addEventListener('click', (e) => {
@@ -296,6 +304,35 @@ function renderNotifications(s) {
       <div><b>${esc(i.title)}</b><span>${esc(i.text)}</span></div></div>`).join('')
     : empty('All clear — nothing needs your attention.', 'ok', 'check-circle'), false);
   $('notifDot').hidden = !items.length || notifSignature() === notifSeen || !$('notifPanel').hidden;
+}
+
+/* ── account menu ───────────────────────────────────────────────────────── */
+function toggleUser(open) {
+  const panel = $('userPanel');
+  if (open) { panel.hidden = false; panel.classList.remove('closing'); $('userBtn').setAttribute('aria-expanded', 'true'); return; }
+  if (panel.hidden) return;
+  panel.classList.add('closing'); $('userBtn').setAttribute('aria-expanded', 'false');
+  setTimeout(() => { panel.hidden = true; panel.classList.remove('closing'); }, REDUCED.matches ? 0 : 140);
+}
+$('userBtn').addEventListener('click', (e) => { e.stopPropagation(); toggleNotif(false); toggleUser($('userPanel').hidden); });
+document.addEventListener('click', (e) => { if (!e.target.closest('.user-menu')) toggleUser(false); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') toggleUser(false); });
+$('logoutBtn').addEventListener('click', async () => {
+  const ok = await confirmDialog({ title: 'Sign out?', body: 'You will need to sign in again to use the dashboard.',
+    ok: 'Sign out', tone: 'danger', iconName: 'log-out' });
+  if (!ok) return;
+  try { await fetch('/api/logout', { method: 'POST' }); } catch { /* signed out either way */ }
+  location.replace('/login');
+});
+async function loadUser() {
+  try {
+    const me = await getJSON('/api/me');
+    if (!me.auth || !me.user) return;   // login switched off (VIEWER_AUTH=0)
+    $('userMenu').hidden = false;
+    $('userName').textContent = me.user; $('userPanelName').textContent = me.user;
+    $('userAvatar').textContent = me.user.slice(0, 1);
+    if (me.expires) $('userPanelSub').textContent = `Operator · session until ${hhmmss(me.expires)}`;
+  } catch { /* handled by getJSON */ }
 }
 
 /* ── topology ────────────────────────────────────────────────────────────── */
@@ -1008,6 +1045,8 @@ $('kpis').innerHTML = KPI_DEFS.map(() => '<div class="skel skel-kpi"></div>').jo
 ['ovDecisions', 'ovEvents', 'trustBars', 'secEvents', 'pending', 'activeIntents', 'healActions', 'timeline', 'predTable']
   .forEach((id) => { $(id).innerHTML = skeleton(4); });
 renderTimelineFilters();
+document.body.classList.add('entering');
+loadUser();
 showTab((location.hash || '#overview').slice(1));
 poll();
 setInterval(poll, POLL_MS);

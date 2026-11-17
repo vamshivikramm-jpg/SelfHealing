@@ -6,7 +6,7 @@
   <meta name="color-scheme" content="dark">
   <title>Self-Healing Network Dashboard</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%236d7cff'/%3E%3Cpath d='M9 17l4 4 10-11' stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="/static/css/dashboard.css?v=2.4">
+  <link rel="stylesheet" href="/static/css/dashboard.css?v=2.6">
   <script src="https://unpkg.com/cytoscape@3.28.1/dist/cytoscape.min.js"></script>
 </head>
 <body>
@@ -60,6 +60,18 @@
           <div class="dropdown" id="notifPanel" role="dialog" aria-label="Notifications" hidden>
             <div class="dropdown-head"><b>Needs attention</b><span class="muted small" id="notifSub"></span></div>
             <div id="notifList" class="dropdown-body"></div>
+          </div>
+        </div>
+        <div class="user-menu" id="userMenu" hidden>
+          <button class="user-btn" id="userBtn" aria-haspopup="true" aria-expanded="false" aria-label="Account menu">
+            <span class="ava" id="userAvatar">?</span><span class="uname" id="userName"></span>
+            <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div class="dropdown user-panel" id="userPanel" role="menu" hidden>
+            <div class="dropdown-head"><b id="userPanelName"></b><span class="muted small" id="userPanelSub">Operator</span></div>
+            <div class="dropdown-body">
+              <button class="menu-item danger" id="logoutBtn" role="menuitem" data-icon="log-out">Sign out</button>
+            </div>
           </div>
         </div>
       </div>
@@ -208,6 +220,6 @@
 </div>
 <div class="toasts" id="toasts" aria-live="polite"></div>
 <div id="tooltip" class="tooltip" hidden></div>
-<script src="/static/js/dashboard.js?v=2.4"></script>
+<script src="/static/js/dashboard.js?v=2.6"></script>
 </body>
 </html>
