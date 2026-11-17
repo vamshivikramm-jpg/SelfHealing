@@ -83,3 +83,23 @@ Linux-lab next steps in `docs/deployment.md`.
   docs/deployment.md, Troubleshooting).
 - Need a guaranteed sequence? Control tab → **Run demo** plays a scripted
   ~7-minute version of steps 2–4 automatically.
+
+## Live-lab variant (same steps on the real emulated network)
+
+Run the same script on the live lab to show it is not only a simulation:
+
+1. On the VM, ≥ 5 minutes before: `cd ~/SelfHealing && docker compose up -d && make live-dashboard`.
+   Open `http://<vm-ip>:8000` on the presentation laptop. The banner says
+   **LIVE LAB**; wait until the "learning normal traffic" countdown ends.
+2. Step 2 (cut cable): Control → Link down, `sw-a-sw-b`, **Physical damage**.
+   The link turns red within ~5 s (probes stop getting through, while the
+   controller still thinks it is fine); REROUTE is verified by real pings;
+   RESTORE escalates.
+3. Step 4 (attack): Control → Port scan from h5. A real scanner runs inside
+   h5; h5 is quarantined in a few seconds and the quarantine is verified by a
+   ping that gets no answer (Zero Trust tab, Decisions & Healing tab).
+4. Point out the differences from simulation: telemetry is *measured*, the
+   attack is a real program, the drop rules are in the switches
+   (on the VM: `docker compose exec mininet-net ovs-ofctl -O OpenFlow13 dump-flows sw-b`).
+5. Results for the live lab: `docs/results-live.md`.
+6. Afterwards: `make live-dashboard-stop`.

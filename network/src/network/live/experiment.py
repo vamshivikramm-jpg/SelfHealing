@@ -56,6 +56,52 @@ ATTACKS = (
 )
 
 
+def newly_quarantined(samples, start, end, attacker) -> List[str]:
+    """Devices other than the attacker that became quarantined in [start, end]
+    (devices already quarantined when the window opened do not count)."""
+    before = next((set(s["quarantined"]) for s in reversed(samples) if s["ts"] < start), set())
+    during = {d for s in samples if start <= s["ts"] <= end for d in s["quarantined"]}
+    return sorted(during - before - {attacker})
+
+
+def pauses(samples, step_s: float = 2.0, factor: float = 5.0):
+    """(start, end) of gaps between steps much longer than a step: the VM
+    or the host was suspended, so timings across them are meaningless."""
+    out = []
+    for a, b in zip(samples, samples[1:]):
+        if b["ts"] - a["ts"] > step_s * factor:
+            out.append((a["ts"], b["ts"]))
+    return out
+
+
+def reanalyse(directory: str) -> dict:
+    """Recompute detection and false-quarantine metrics from a run's saved
+    samples and mark incidents that overlap a pause as invalid."""
+    import gzip
+
+    path = os.path.join(directory, "samples.jsonl")
+    opener = open
+    if not os.path.exists(path):
+        path, opener = path + ".gz", gzip.open
+    with opener(path, "rt") as fh:
+        samples = [json.loads(line) for line in fh]
+    with open(os.path.join(directory, "incidents.json")) as fh:
+        data = json.load(fh)
+    gaps = pauses(samples, data["settings"]["interval_s"])
+    for i in data["incidents"]:
+        end = i.get("end", i["start"] + data["settings"]["attack_s"]) + data["settings"]["gap_s"]
+        step = data["settings"]["interval_s"]
+        i["invalid"] = any(min(b, end) - max(a, i["start"]) > step for a, b in gaps)  # unobserved time inside
+        if i["type"] == "failure":
+            key = f"link:{i['target']}" if "-" in i["target"] and i["kind"] not in ("router", "switch") \
+                else f"node:{i['target']}"
+            t = _first(samples, i["start"], end, lambda s: s["health"].get(key, "HEALTHY") != "HEALTHY")
+            i["detection_s"] = None if t is None else round(t - i["start"], 1)
+        else:
+            i["other_devices_quarantined"] = newly_quarantined(samples, i["start"], end, i["attacker"])
+    return data
+
+
 def _first(samples, start, end, predicate) -> Optional[float]:
     for s in samples:
         if start <= s["ts"] <= end and predicate(s):
@@ -152,7 +198,7 @@ class LiveExperiment:
         actions = [a for a in rt.healing.history() if a.get("target") == key and (a.get("started") or 0) >= start - 5]
         executed = min((a["started"] for a in actions if a.get("started")), default=None)
         verified = min((a["verified_at"] for a in actions if a.get("verified_at")), default=None)
-        detect = _first(self.samples, start, end + self.gap_s, lambda s: s["health"].get(target, "HEALTHY") != "HEALTHY")
+        detect = _first(self.samples, start, end + self.gap_s, lambda s: s["health"].get(key, "HEALTHY") != "HEALTHY")
         restored = rt.service.restored_at(affected, start, end) if affected else None
         lost = rt.service.lost_fraction(affected, start, end) if affected else None
         predicted = self._predicted.get(target)
@@ -178,8 +224,7 @@ class LiveExperiment:
                         lambda s: attacker in s["anomalies"])
         quarantined = _first(self.samples, start, start + self.attack_s + self.gap_s,
                              lambda s: attacker in s["quarantined"])
-        others = sorted({d for s in self.samples if start <= s["ts"] <= start + self.attack_s + self.gap_s
-                         for d in s["quarantined"] if d != attacker})
+        others = newly_quarantined(self.samples, start, start + self.attack_s + self.gap_s, attacker)
         kinds = sorted({k for s in self.samples if start <= s["ts"] <= start + self.attack_s + self.gap_s
                         for k in s["anomalies"].get(attacker, [])})
         self.incidents.append({
@@ -191,8 +236,8 @@ class LiveExperiment:
 
     # -- results ----------------------------------------------------------------------------------
     def report(self) -> dict:
-        fails = [i for i in self.incidents if i["type"] == "failure"]
-        atts = [i for i in self.incidents if i["type"] == "attack"]
+        fails = [i for i in self.incidents if i["type"] == "failure" and not i.get("invalid")]
+        atts = [i for i in self.incidents if i["type"] == "attack" and not i.get("invalid")]
 
         def stat(values):
             v = [x for x in values if x is not None]
@@ -212,6 +257,7 @@ class LiveExperiment:
             "attack_detection_s": stat(i["detection_s"] for i in atts),
             "attackers_quarantined": sum(1 for i in atts if i["quarantine_s"] is not None),
             "false_quarantines": sorted({d for i in atts for d in i["other_devices_quarantined"]}),
+            "invalid_incidents": [i.get("label") or i["kind"] for i in self.incidents if i.get("invalid")],
         }
 
     def markdown(self, r: dict) -> str:
@@ -233,7 +279,8 @@ class LiveExperiment:
             if i["type"] == "failure":
                 acts = ", ".join(f"{a['type']} {a['state']}" for a in i["actions"]) or "—"
                 lost = "—" if i["lost_fraction"] is None else f"{100 * i['lost_fraction']:.0f} %"
-                lines.append(f"| {i['label']} | {f(i['detection_s'])} | {f(i['predicted_lead_s'])} | "
+                mark = " (invalid: VM paused)" if i.get("invalid") else ""
+                lines.append(f"| {i['label']}{mark} | {f(i['detection_s'])} | {f(i['predicted_lead_s'])} | "
                              f"{f(i['first_action_s'])} | {f(i['verified_s'])} | {f(i['restored_s'])} | {lost} | "
                              f"{acts} |")
         lines += ["", "## Attacks", "",
@@ -241,7 +288,8 @@ class LiveExperiment:
                   "|---|---|---|---|---|---|"]
         for i in self.incidents:
             if i["type"] == "attack":
-                lines.append(f"| {i['kind']} | {i['attacker']} | {f(i['detection_s'])} | {f(i['quarantine_s'])} | "
+                mark = " (invalid: VM paused)" if i.get("invalid") else ""
+                lines.append(f"| {i['kind']}{mark} | {i['attacker']} | {f(i['detection_s'])} | {f(i['quarantine_s'])} | "
                              f"{', '.join(i['anomaly_kinds']) or '—'} | "
                              f"{', '.join(i['other_devices_quarantined']) or 'none'} |")
         lines += ["", "## Summary", "", "```json", json.dumps(r, indent=2), "```", ""]
@@ -253,7 +301,20 @@ def main(argv=None) -> int:
     ap.add_argument("--out", required=True)
     ap.add_argument("--rounds", type=int, default=1)
     ap.add_argument("--warmup", type=float, default=90.0)
+    ap.add_argument("--reanalyse", action="store_true", help="recompute the report of an existing --out directory")
     args = ap.parse_args(argv)
+    if args.reanalyse:
+        data = reanalyse(args.out)
+        exp = LiveExperiment.__new__(LiveExperiment)
+        exp.incidents = data["incidents"]
+        exp.settings = lambda: data["settings"]
+        report = exp.report()
+        with open(os.path.join(args.out, "incidents.json"), "w") as fh:
+            json.dump({"incidents": exp.incidents, "summary": report, "settings": data["settings"]}, fh, indent=2)
+        with open(os.path.join(args.out, "report.md"), "w") as fh:
+            fh.write(exp.markdown(report))
+        print(json.dumps(report, indent=2))
+        return 0
     report = LiveExperiment(args.out, warmup_s=args.warmup, rounds=args.rounds).run()
     print(json.dumps(report, indent=2))
     return 0
