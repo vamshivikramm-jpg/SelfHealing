@@ -7,6 +7,8 @@
 #
 # Settings: SELFHEALING_PORT (default 8000), SELFHEALING_VM (default vamshi@172.16.120.137).
 set -uo pipefail
+# the system tools used below (lsof is in /usr/sbin) even from a minimal shell
+export PATH="$PATH:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
 REPO="$(cd "$(dirname "$(python3 -c 'import os,sys;print(os.path.realpath(sys.argv[1]))' "$0")")/.." && pwd)"
 PORT="${SELFHEALING_PORT:-8000}"
