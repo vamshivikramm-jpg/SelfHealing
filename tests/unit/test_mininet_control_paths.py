@@ -56,6 +56,10 @@ class Switch:
     def stop(self, deleteIntfs=True):  # noqa: N803
         self.calls.append(("stop", deleteIntfs))
 
+    def controllerUUIDs(self, update=False):  # noqa: N802
+        self.calls.append(("uuids", update))
+        return []
+
 
 class Host:
     def __init__(self, name):
@@ -126,7 +130,15 @@ def _first_link(ctrl):
 def test_switch_stops_keeping_interfaces_and_restarts_with_controllers(ctrl):
     ctrl.disable_node("sw-a")
     ctrl.enable_node("sw-a")
-    assert ctrl._net.get("sw-a").calls == [("stop", False), ("start", ["ryu"])]
+    assert ctrl._net.get("sw-a").calls == [("stop", False), ("start", ["ryu"]), ("uuids", True)]
+
+
+def test_switch_restart_reapplies_impairments(ctrl):
+    ctrl.set_link_latency("sw-a", "h1", 30)
+    ctrl.disable_node("sw-a")
+    ctrl.enable_node("sw-a")
+    (link,) = ctrl._net.linksBetween(ctrl._net.get("sw-a"), ctrl._net.get("h1"))
+    assert link.intf1.configs == [{"delay": "30ms"}, {"delay": "30ms"}]
 
 
 def test_switch_restart_keeps_disconnected_links_down(ctrl):

@@ -433,7 +433,15 @@ class NetworkController:
         node = self._net.get(node_name)
         if hasattr(node, "dpid"):
             node.start(list(getattr(self._net, "controllers", [])))
+            refresh = getattr(node, "controllerUUIDs", None)
+            if refresh is not None:
+                # the new bridge has new Controller records; Mininet caches
+                # the old UUIDs, so connected() would stay False without this
+                refresh(update=True)
             self._reapply_link_state(node_name)
+            for key, params in self._impairments.items():
+                if node_name in self._split_key(key):
+                    self._apply_impairment(key, dict(params))
         elif hasattr(node, "intfList") and hasattr(node, "cmd"):
             for intf in node.intfList():
                 if intf.name == "lo":
