@@ -2,7 +2,9 @@
 
 > Basis document for the IEEE paper and final report. Targeted at a **systems/network venue** (IEEE TNSM / IFIP Networking style).
 >
-> Status: blueprint v1.0 · Module 1 (network layer) not yet implemented
+> Status: blueprint v1.0 written before implementation. Modules 1–9 are now implemented and evaluated **in
+> simulation**; measured results (simulated network, synthetic failures and attacks) are in
+> [`results.md`](results.md). Statements below are design intent unless results.md supports them.
 
 ---
 

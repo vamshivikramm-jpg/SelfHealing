@@ -226,7 +226,8 @@ def test_evaluation_modes_compare_as_expected():
 
     report = run_evaluation(seeds=(2,), duration_s=7200, use_predictor=False, n_failures=8, n_attacks=2)
     s = report["summary"]
-    assert set(s) == {"no_healing", "restore_only", "full", "full_no_prediction", "full_no_verify"}
+    assert set(s) == {"no_healing", "restore_only", "full", "full_no_prediction", "full_no_verify",
+                      "random_reroute", "full_no_trust"}
     assert s["no_healing"]["healed_before_manual_repair_pct"] == 0.0
     assert s["full"]["mttr_s"] < s["no_healing"]["mttr_s"]
     assert s["full"]["user_loss_pct"] <= s["restore_only"]["user_loss_pct"] < s["no_healing"]["user_loss_pct"]

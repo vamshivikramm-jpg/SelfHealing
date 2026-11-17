@@ -1,0 +1,11 @@
+condition,seed,correct_action_rate,false_negative_rate,false_positive_per_hour,proactive_actions,decision_latency_ms_p95
+decision_engine,1,1.0,0.0,0.0,3,0.1832920000310878
+decision_engine,2,1.0,0.0,0.0,4,0.1897910000252523
+decision_engine,3,1.0,0.0,0.0,2,0.15383300001303724
+decision_engine,4,1.0,0.0,0.0,4,0.19016599998167294
+decision_engine,5,1.0,0.0,0.0,3,0.17662499999460124
+decision_engine,6,1.0,0.0,0.0,0,0.13174999998000203
+decision_engine,7,1.0,0.0,0.0,1,0.18162499998197745
+decision_engine,8,1.0,0.0,0.0,6,0.20445899997412198
+decision_engine,9,1.0,0.0,0.0,4,0.15904199995020463
+decision_engine,10,1.0,0.0,0.3333333333333333,3,0.18429200008540647

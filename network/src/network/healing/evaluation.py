@@ -12,6 +12,8 @@ simulation topology, physical faults enabled) in several modes:
 | ``full``               | everything |
 | ``full_no_prediction`` | ablation: no failure predictor (§9.4) |
 | ``full_no_verify``     | ablation: actions are claimed successful without checking (§9.4) |
+| ``random_reroute``     | baseline (d): reroute onto any usable path instead of the Eq. 6 cheapest |
+| ``full_no_trust``      | ablation: Eq. 4 without the trust term (§9.4) |
 
 Metrics (research doc §8.2), over *outages* (link, switch and router
 failures; impairments do not stop traffic in the delivery model):
@@ -35,6 +37,7 @@ Everything is SIMULATED; failures, warning patterns and attacks SYNTHETIC.
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import json
 import os
 import statistics
@@ -44,7 +47,7 @@ from typing import Dict, List, Optional, Sequence
 from network.analytics.scenarios import ScenarioRunner, generate_plan
 from network.config import load_topology_config
 from network.decision.evaluation import train_predictor
-from network.decision.policy import DecisionPolicy
+from network.decision.policy import DecisionPolicy, RiskWeights
 from network.healing.engine import HealingPolicy
 from network.healing.loop import ClosedLoop
 from network.security.identity import IdentityRegistry
@@ -63,23 +66,30 @@ MODES = {
     "full": {},
     "full_no_prediction": {"predictor": False},
     "full_no_verify": {"policy": HealingPolicy(verify=False)},
+    # baseline (d), research doc §9.2: reroute onto any usable path
+    "random_reroute": {"decision": {"route_selection": "random"}},
+    # ablation (§9.4): no trust term in Eq. 4 (its weight shared by the others)
+    "full_no_trust": {"decision": {"weights": RiskWeights(prediction=0.35, trust=0.0, threat=0.20, fault=0.45)}},
 }
 
 
 def run_mode(mode: str, seed: int, topology, registry, zt_policy, decision_policy, model, threshold,
-             duration_s: float, n_failures: int, n_attacks: int) -> dict:
+             duration_s: float, n_failures: int, n_attacks: int, step_s: float = 5.0,
+             physical: Optional[Dict[str, float]] = None) -> dict:
     from network.analytics.scenarios import _quiet_logger
     from network.prediction.online import OnlinePredictor
 
     spec = MODES[mode]
+    if spec.get("decision"):
+        decision_policy = dataclasses.replace(decision_policy, **spec["decision"])
     plan = generate_plan(topology, duration_s, seed=seed, n_failures=n_failures, precursor_probability=0.5,
-                         physical_probability=PHYSICAL)
+                         physical_probability=PHYSICAL if physical is None else physical, step_s=step_s)
     runner = ScenarioRunner(plan, config=topology)
     predictor = None
     if model is not None and spec.get("predictor", True):
         predictor = OnlinePredictor(model, threshold, runner.collector, logger=_quiet_logger("predictor")).attach()
     security_plan = generate_security_plan(registry, duration_s, seed=seed, n_attacks=n_attacks,
-                                           warmup_s=900.0, gap_s=(600.0, 1500.0))
+                                           warmup_s=900.0, gap_s=(600.0, 1500.0), step_s=step_s)
     loop = ClosedLoop(runner, registry, zt_policy, decision_policy, topology, security_plan, predictor,
                       healing_policy=spec.get("policy", HealingPolicy()), heal=spec.get("heal", True))
     result = runner.run()
@@ -147,8 +157,13 @@ def score(result, security_plan, loop) -> dict:
                     and a["verified_at"] >= start - step]
         containment.append(None if not verified else max(0.0, min(verified) - start))
 
+    # path stretch of reroutes that were actually executed (none without healing)
+    executed = [a.intent for a in loop.healing.actions.values()] if loop.healing else []
+    stretch = [len(m["new"]) / len(m["old"]) for i in executed if i["type"] in ("REROUTE", "LOAD_BALANCE")
+               for m in i["params"].get("moves", [])]
     return {"outages": outages, "healing": healing, "false_success_claims": false_claims,
-            "attack_containment_s": containment, "hours": (result.end - result.start) / 3600.0}
+            "attack_containment_s": containment, "hours": (result.end - result.start) / 3600.0,
+            "path_stretch": (sum(stretch) / len(stretch)) if stretch else None}
 
 
 def _median(values):
@@ -188,14 +203,16 @@ def aggregate(runs: List[dict]) -> dict:
             "median_attack_containment_s": _median(c for r in rs for c in r["attack_containment_s"]),
             "attacks_contained_pct": 100.0 * sum(c is not None for r in rs for c in r["attack_containment_s"])
             / max(1, sum(len(r["attack_containment_s"]) for r in rs)),
+            "path_stretch": _mean(r.get("path_stretch") for r in rs),
         }
     return out
 
 
 def run_evaluation(seeds: Sequence[int] = (1, 2, 3), duration_s: float = 10800.0, modes: Sequence[str] = tuple(MODES),
                    use_predictor: bool = True, n_failures: int = 12, n_attacks: int = 6,
-                   config_dir: str = CONFIG_DIR) -> dict:
-    topology = load_topology_config(os.path.join(config_dir, "enterprise-redundant.yaml"))
+                   config_dir: str = CONFIG_DIR, topology_file: str = "enterprise-redundant.yaml",
+                   step_s: float = 5.0, physical: Optional[Dict[str, float]] = None) -> dict:
+    topology = load_topology_config(os.path.join(config_dir, topology_file))
     registry = IdentityRegistry.from_config(topology, os.path.join(config_dir, "identities.yaml"))
     zt_policy = ZeroTrustPolicy.from_file(os.path.join(config_dir, "zero_trust_policy.yaml"))
     decision_policy = DecisionPolicy.from_file(os.path.join(config_dir, "decision_policy.yaml"))
@@ -203,11 +220,12 @@ def run_evaluation(seeds: Sequence[int] = (1, 2, 3), duration_s: float = 10800.0
     if use_predictor:
         model, threshold = train_predictor(topology)
     runs = [run_mode(m, s, topology, registry, zt_policy, decision_policy, model, threshold, duration_s,
-                     n_failures, n_attacks) for s in seeds for m in modes]
+                     n_failures, n_attacks, step_s, physical) for s in seeds for m in modes]
     return {
         "simulated": True,
         "synthetic": True,
-        "physical_probability": PHYSICAL,
+        "topology": topology.name,
+        "physical_probability": PHYSICAL if physical is None else physical,
         "warning": ("SIMULATED network and execution; SYNTHETIC failures, warning patterns and attacks; the "
                     "delivery model's link load is not route-aware."),
         "summary": aggregate(runs),

@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 360" font-family="Helvetica, Arial, sans-serif">
+<rect width="760" height="360" fill="#fff"/>
+<text x="64" y="24" font-size="15" font-weight="bold" fill="#222">Failures with warning signs caught &gt;= 30 s ahead</text>
+<line x1="64" x2="744" y1="270.0" y2="270.0" stroke="#e5e5e5"/>
+<text x="58" y="274.0" font-size="11" text-anchor="end" fill="#555">0</text>
+<line x1="64" x2="744" y1="224.0" y2="224.0" stroke="#e5e5e5"/>
+<text x="58" y="228.0" font-size="11" text-anchor="end" fill="#555">40</text>
+<line x1="64" x2="744" y1="178.0" y2="178.0" stroke="#e5e5e5"/>
+<text x="58" y="182.0" font-size="11" text-anchor="end" fill="#555">80</text>
+<line x1="64" x2="744" y1="132.0" y2="132.0" stroke="#e5e5e5"/>
+<text x="58" y="136.0" font-size="11" text-anchor="end" fill="#555">120</text>
+<line x1="64" x2="744" y1="86.0" y2="86.0" stroke="#e5e5e5"/>
+<text x="58" y="90.0" font-size="11" text-anchor="end" fill="#555">160</text>
+<line x1="64" x2="744" y1="40.0" y2="40.0" stroke="#e5e5e5"/>
+<text x="58" y="44.0" font-size="11" text-anchor="end" fill="#555">200</text>
+<text x="14" y="155.0" font-size="12" fill="#333" transform="rotate(-90 14 155.0)" text-anchor="middle">%</text>
+<rect x="84.4" y="203.8" width="72.5" height="66.2" fill="#2f6fbf" opacity="0.85"/>
+<text x="120.7" y="182.5" font-size="11" text-anchor="middle" fill="#222">58</text>
+<line x1="120.7" x2="120.7" y1="219.0" y2="188.5" stroke="#222"/>
+<line x1="114.7" x2="126.7" y1="219.0" y2="219.0" stroke="#222"/>
+<line x1="114.7" x2="126.7" y1="188.5" y2="188.5" stroke="#222"/>
+<text x="120.7" y="286" font-size="11" text-anchor="end" fill="#333" transform="rotate(-30 120.7 286)">gradient_boosting</text>
+<rect x="197.7" y="248.6" width="72.5" height="21.4" fill="#d1495b" opacity="0.85"/>
+<text x="234.0" y="232.5" font-size="11" text-anchor="middle" fill="#222">19</text>
+<line x1="234.0" x2="234.0" y1="258.6" y2="238.5" stroke="#222"/>
+<line x1="228.0" x2="240.0" y1="258.6" y2="258.6" stroke="#222"/>
+<line x1="228.0" x2="240.0" y1="238.5" y2="238.5" stroke="#222"/>
+<text x="234.0" y="286" font-size="11" text-anchor="end" fill="#333" transform="rotate(-30 234.0 286)">isolation_forest</text>
+<rect x="311.1" y="158.7" width="72.5" height="111.3" fill="#3a9d5d" opacity="0.85"/>
+<text x="347.3" y="149.0" font-size="11" text-anchor="middle" fill="#222">97</text>
+<line x1="347.3" x2="347.3" y1="164.7" y2="155.0" stroke="#222"/>
+<line x1="341.3" x2="353.3" y1="164.7" y2="164.7" stroke="#222"/>
+<line x1="341.3" x2="353.3" y1="155.0" y2="155.0" stroke="#222"/>
+<text x="347.3" y="286" font-size="11" text-anchor="end" fill="#333" transform="rotate(-30 347.3 286)">logistic_regression</text>
+<rect x="424.4" y="186.1" width="72.5" height="83.9" fill="#e8a33d" opacity="0.85"/>
+<text x="460.7" y="170.2" font-size="11" text-anchor="middle" fill="#222">73</text>
+<line x1="460.7" x2="460.7" y1="196.1" y2="176.2" stroke="#222"/>
+<line x1="454.7" x2="466.7" y1="196.1" y2="196.1" stroke="#222"/>
+<line x1="454.7" x2="466.7" y1="176.2" y2="176.2" stroke="#222"/>
+<text x="460.7" y="286" font-size="11" text-anchor="end" fill="#333" transform="rotate(-30 460.7 286)">random_forest</text>
+<rect x="537.7" y="226.4" width="72.5" height="43.6" fill="#7b5ea7" opacity="0.85"/>
+<text x="574.0" y="210.4" font-size="11" text-anchor="middle" fill="#222">38</text>
+<line x1="574.0" x2="574.0" y1="236.3" y2="216.4" stroke="#222"/>
+<line x1="568.0" x2="580.0" y1="236.3" y2="236.3" stroke="#222"/>
+<line x1="568.0" x2="580.0" y1="216.4" y2="216.4" stroke="#222"/>
+<text x="574.0" y="286" font-size="11" text-anchor="end" fill="#333" transform="rotate(-30 574.0 286)">threshold</text>
+<rect x="651.1" y="175.0" width="72.5" height="95.0" fill="#3aa1a8" opacity="0.85"/>
+<text x="687.3" y="156.8" font-size="11" text-anchor="middle" fill="#222">83</text>
+<line x1="687.3" x2="687.3" y1="187.1" y2="162.8" stroke="#222"/>
+<line x1="681.3" x2="693.3" y1="187.1" y2="187.1" stroke="#222"/>
+<line x1="681.3" x2="693.3" y1="162.8" y2="162.8" stroke="#222"/>
+<text x="687.3" y="286" font-size="11" text-anchor="end" fill="#333" transform="rotate(-30 687.3 286)">zscore</text>
+<text x="64" y="352" font-size="10" fill="#777">mean with 95% CI over seeds; simulated</text>
+</svg>

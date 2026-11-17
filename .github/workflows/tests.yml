@@ -1,0 +1,50 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  unit:
+    name: unit tests (Python ${{ matrix.python }})
+    # 22.04 still provides Python 3.9 (the macOS system Python used for development)
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.9", "3.11"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+      - name: Unit tests (simulated network; no Mininet network is started)
+        env:
+          PYTHONPATH: network/src
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: python -m pytest tests/unit -q -W ignore
+
+  experiments-smoke:
+    name: experiment runner smoke test
+    runs-on: ubuntu-latest
+    needs: unit
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+      - name: Quick profile (security + decisions + scalability)
+        env:
+          PYTHONPATH: network/src
+        run: python -W ignore -m network.experiments.runner --profile quick --only security,decisions,scalability --out results/ci
+      - uses: actions/upload-artifact@v4
+        with:
+          name: experiment-smoke-report
+          path: results/ci

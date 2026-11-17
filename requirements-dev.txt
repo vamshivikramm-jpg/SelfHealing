@@ -1,0 +1,15 @@
+# Everything needed to run the full test suite, the experiments and the
+# dashboard's simulation mode on a development machine (macOS or Linux).
+# Mininet is installed only as a Python package here: the code imports it,
+# but no network is started. Running real networks needs the Linux lab
+# (docs/deployment.md), where Mininet comes from the OS package manager.
+PyYAML>=6.0
+pytest>=8
+numpy>=1.24
+scikit-learn>=1.3
+joblib>=1.3
+scipy>=1.10
+fastapi>=0.104
+uvicorn[standard]>=0.24
+# Mininet is not on PyPI; install the 2.3.0 release from GitHub (Python package only).
+mininet @ git+https://github.com/mininet/mininet.git@2.3.0

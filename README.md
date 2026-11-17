@@ -23,8 +23,11 @@ them against telemetry and traffic delivery, undoes/escalates, evaluated
 against baselines and ablations — all on a simulated network with a
 physical-fault model. **Module 8 (dashboard)**: tabbed live dashboard
 with a simulation mode that runs the whole closed loop and lets you inject
-failures and attacks, approve decisions and change autonomy. Inter-subnet
-routing is a later module.
+failures and attacks, approve decisions and change autonomy. **Module 9
+(evaluation)**: reproducible 10-seed experiments with statistics, results in
+[`docs/results.md`](docs/results.md), setup in
+[`docs/deployment.md`](docs/deployment.md). Inter-subnet routing and every
+live-network step are still to do (see docs/deployment.md).
 
 ### Dashboard
 

@@ -42,12 +42,17 @@ class DecisionPolicy:
     max_quarantined: int = 2
     protected_kinds: Tuple[str, ...] = ("server", "switch", "router")
     always_approve: Tuple[str, ...] = ("ISOLATE",)
+    # "cost" = Eq. 6 cheapest path; "random" = any usable path (baseline (d), §9.2)
+    route_selection: str = "cost"
+    random_seed: int = 0
 
     def __post_init__(self):
         if self.autonomy not in AUTONOMY_LEVELS:
             raise ValueError(f"autonomy must be one of {AUTONOMY_LEVELS}")
         if not 0 <= self.act_above <= 1:
             raise ValueError("act_above must be within [0, 1]")
+        if self.route_selection not in ("cost", "random"):
+            raise ValueError("route_selection must be 'cost' or 'random'")
 
     @classmethod
     def from_file(cls, path) -> "DecisionPolicy":
@@ -71,6 +76,7 @@ class DecisionPolicy:
             max_quarantined=int(safety.get("max_quarantined", 2)),
             protected_kinds=tuple(safety.get("protected_kinds", ("server", "switch", "router"))),
             always_approve=tuple(safety.get("always_approve", ("ISOLATE",))),
+            route_selection=str(data.get("route_selection", "cost")),
         )
 
     def to_dict(self) -> dict:
