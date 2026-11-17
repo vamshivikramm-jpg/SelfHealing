@@ -6,9 +6,9 @@ are in: everything verified so far ran in **setting A**.
 | | A. Simulation (any Mac/Linux) | B. Live lab (Linux VM) |
 |---|---|---|
 | Network | in-memory simulated data plane | Mininet + Open vSwitch + Ryu in Docker |
-| Telemetry | `SimulatedSource` (reads the simulated network's real state) | live sources: **not built yet** |
-| Self-healing execution | `SimulatedExecutor` | live executor: **not built yet** |
-| Status | Modules 1–9 tested (unit tests, evaluations, dashboard) | **Module 1, failure control and the Ryu app verified live** (25 integration tests); Modules 2–8 not yet |
+| Telemetry | `SimulatedSource` (reads the simulated network's real state) | `LiveSource` (active probes + OpenFlow counters) |
+| Self-healing execution | `SimulatedExecutor` | `LiveExecutor` (Ryu REST: pinned paths, drop rules) |
+| Status | Modules 1–9 tested (unit tests, evaluations, dashboard) | **Module 1, failure control, Ryu app, live telemetry and healing actions verified live** (32 integration tests); live closed loop not yet; Modules 2–8 not yet |
 
 ## A. Simulation setup
 
@@ -122,12 +122,31 @@ redundant topology: no broadcast storm, failover when sw-a↔sw-b goes down,
 and traffic following a pinned path. After changing the app, rebuild its
 image: `docker build --network host -t selfhealing-ryu-controller ./controller && docker compose up -d`.
 
-### Still needed before Modules 2–8 run live
+### Live telemetry and healing back-ends (P3–P4) — verified
 
-1. **Live telemetry sources**: Ryu port statistics (`/sh/stats/ports`) and
-   ping probes behind the existing `TelemetrySource` interface.
-2. **Live executor**: NetworkController calls + Ryu REST (pinned routes,
-   blocks) for healing actions and Zero Trust rules.
+`network/src/network/live/` implements the simulation's interfaces on the
+real network:
+
+| Piece | How it measures / acts |
+|---|---|
+| `LiveSource` | per-link one-way latency and loss from the Ryu app's active probes (probe frames across switch links, ARP probes to hosts, 5 per second, 5 s window, controller↔switch delay subtracted using OpenFlow echo); carrier from port state; byte/packet/drop counters from OpenFlow port stats. A link that drops every probe is **down** even if the controller thinks it is connected. No per-node CPU/memory (Mininet nodes share one kernel). |
+| `LiveFaults` | "physical" faults: `tc netem loss 100%` on a link or all links of a switch, without telling the controller |
+| `LiveServiceModel` | delivery per client/server pair from real pings (3 per step); routes read back from Ryu |
+| `LiveExecutor` | reroute = pin both directions in Ryu; quarantine/block = drop rules for MAC and IP; undo restores pins / removes rules; restore uses NetworkController/FailureManager |
+| `LiveVerifier` | `access_blocked` = a real ping from the device gets no answer |
+
+`tests/integration/test_live_backends.py` (7 tests) checks on the redundant
+topology: clean measurements on a healthy network; 50 ms impairment measured
+as 40–65 ms; 30 % loss measured as 10–55 %; a physical cut seen only by
+measurement; disconnected link and failed switch; a reroute pinned through
+Ryu restoring delivery around a cut link (verified with pings); a quarantine
+dropping exactly one device's traffic.
+
+### Still needed for the live dashboard
+
+1. **Real traffic and attacks** in the hosts, Zero Trust from real flows (P5).
+2. **Live runtime** wiring these back-ends into the closed loop, served by
+   the dashboard from the VM (P6).
 
 ## Continuous integration
 

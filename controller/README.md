@@ -24,6 +24,7 @@ topology (`SH_TOPOLOGY`, default `enterprise.yaml`) and `identities.yaml`.
 | Pinned paths | `PUT /sh/routes/<ip>` forces a switch path for a destination (used by self-healing reroutes); ignored while one of its links is down. |
 | Blocks | table 0 drop rules (priority 1000) on every switch, e.g. for Zero Trust. |
 | Statistics | port and flow counters polled every `SH_STATS_INTERVAL` s (default 2). |
+| Link measurement | probe frames (ethertype 0x88B5) across every switch link both ways, ARP probes (from an unused "monitor" address, sequence number in the source MAC) to every located host; `SH_PROBE_INTERVAL` 0.2 s, `SH_PROBE_WINDOW` 5 s. One-way latency subtracts half the OpenFlow echo round trip of each switch. Probe replies bypass blocks. |
 
 ### REST API (port 8080, inside the compose network: `http://ryu-controller:8080`)
 
@@ -38,6 +39,7 @@ topology (`SH_TOPOLOGY`, default `enterprise.yaml`) and `identities.yaml`.
 | GET / POST | `/sh/blocks` | `{"match": {"ipv4_src": "10.0.2.10", "tcp_dst": 22}, "reason": "..."}`; fields: `eth_src eth_dst ipv4_src ipv4_dst ip_proto tcp_dst udp_dst` |
 | DELETE | `/sh/blocks/<id>` | remove a block |
 | GET | `/sh/stats/ports`, `/sh/stats/flows` | latest counters |
+| GET | `/sh/stats/links` | measured latency/loss/probe count and carrier per link |
 
 The API has no authentication: it is only reachable on the internal compose
 network. Do not publish port 8080.
