@@ -22,7 +22,8 @@ topology (`SH_TOPOLOGY`, default `enterprise.yaml`) and `identities.yaml`.
 | Host discovery | learned from packets on edge ports; unknown destinations are found with an ARP probe from their gateway, on edge ports only. |
 | Failover | port down/up or a switch disconnecting recomputes every path at once. |
 | Pinned paths | `PUT /sh/routes/<ip>` forces a switch path for a destination (used by self-healing reroutes); ignored while one of its links is down. |
-| Blocks | table 0 drop rules (priority 1000) on every switch, e.g. for Zero Trust. |
+| Blocks | table 0 drop rules (priority 1000) on every switch (operator / healing actions). |
+| Zero Trust | table 0: the first IPv4 packet of each new flow from a host port is decided by the pushed rules (`PUT /sh/zt`); a per-flow allow/drop rule (priority 500, 15 s idle) is installed and counts the flow's packets. Replies to allowed connections pass (stateful). Ports linking switches bypass the check (done at ingress). Without pushed rules every flow is allowed (but still recorded). Port security: a MAC is never learned on another device's port. |
 | Statistics | port and flow counters polled every `SH_STATS_INTERVAL` s (default 2). |
 | Link measurement | probe frames (ethertype 0x88B5) across every switch link both ways, ARP probes (from an unused "monitor" address, sequence number in the source MAC) to every located host; `SH_PROBE_INTERVAL` 0.2 s, `SH_PROBE_WINDOW` 5 s. One-way latency subtracts half the OpenFlow echo round trip of each switch. Probe replies bypass blocks. |
 
@@ -40,6 +41,8 @@ topology (`SH_TOPOLOGY`, default `enterprise.yaml`) and `identities.yaml`.
 | DELETE | `/sh/blocks/<id>` | remove a block |
 | GET | `/sh/stats/ports`, `/sh/stats/flows` | latest counters |
 | GET | `/sh/stats/links` | measured latency/loss/probe count and carrier per link |
+| GET | `/sh/flows?after=<id>&active=<s>` | flows seen at host ports: ingress device, claimed IP/MAC, destination, decision, packet/byte counters |
+| GET / PUT / DELETE | `/sh/zt` | Zero Trust rules in force / replace (`{"rules": [...]}` from `compile_rules`) / switch off |
 
 The API has no authentication: it is only reachable on the internal compose
 network. Do not publish port 8080.

@@ -8,7 +8,7 @@ are in: everything verified so far ran in **setting A**.
 | Network | in-memory simulated data plane | Mininet + Open vSwitch + Ryu in Docker |
 | Telemetry | `SimulatedSource` (reads the simulated network's real state) | `LiveSource` (active probes + OpenFlow counters) |
 | Self-healing execution | `SimulatedExecutor` | `LiveExecutor` (Ryu REST: pinned paths, drop rules) |
-| Status | Modules 1–9 tested (unit tests, evaluations, dashboard) | **Module 1, failure control, Ryu app, live telemetry and healing actions verified live** (32 integration tests); the live closed loop (dashboard) is not wired yet |
+| Status | Modules 1–9 tested (unit tests, evaluations, dashboard) | **Modules 1, 2, 5 and 7's live back-ends verified** (40 integration tests: failures, routing, telemetry, healing actions, Zero Trust on real attacks); the live closed loop (dashboard) is not wired yet |
 
 ## A. Simulation setup
 
@@ -142,11 +142,39 @@ measurement; disconnected link and failed switch; a reroute pinned through
 Ryu restoring delivery around a cut link (verified with pings); a quarantine
 dropping exactly one device's traffic.
 
+### Zero Trust on real traffic (P5) — verified
+
+* **Enforcement in the switches.** The first IPv4 packet of every new flow
+  from a host port goes to the Ryu app, which decides it with the rules the
+  Zero Trust engine compiled (identity binding: the device wired to that
+  port must present its own MAC and IP; role access; quarantine; default
+  deny) and installs a per-flow allow or drop rule. Replies to allowed
+  connections are recognised (stateful) and are not access requests.
+  Monitoring pings are subject to identity binding and quarantine only.
+  When trust changes, the new rule set is pushed (`PUT /sh/zt`) and every
+  flow is decided again. Port security: the controller never learns a MAC
+  on another device's port.
+* **Inputs from the real network.** `LiveSecurityFeed` turns the per-flow
+  rules' counters (`GET /sh/flows`) into `FlowRecord`s and the servers'
+  login logs into `AuthEvent`s.
+* **Real traffic** (`network.live.hostapps`, started by `LiveTraffic`):
+  services with a login endpoint on the servers (80/443/5432/22), every
+  device running its role's normal traffic (the simulation's profiles), and
+  the five attacks done for real: TCP port scan, wrong-password logins,
+  raw frames with another device's IP and MAC, connections to forbidden
+  services, and a 4000 packet/s UDP flood.
+
+`tests/integration/test_zero_trust_live.py` (8 tests): ~45 s of normal
+traffic raises no fingerprint/scan/login/flood alarm; the switches allow
+employee→web:443 and admin ssh and drop contractor→db:5432 and employee ssh;
+a block is enforced and lifted; and each of the five real attacks is
+detected for its attacker (port_scan, auth_failures, fingerprint_mismatch,
+policy_violation, volume/flood).
+
 ### Still needed for the live dashboard
 
-1. **Real traffic and attacks** in the hosts, Zero Trust from real flows (P5).
-2. **Live runtime** wiring these back-ends into the closed loop, served by
-   the dashboard from the VM (P6).
+**Live runtime (P6)**: wire these back-ends into the closed loop and serve
+the dashboard from the VM.
 
 ## Continuous integration
 
