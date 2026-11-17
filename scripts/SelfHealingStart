@@ -13,6 +13,8 @@
 #   SELFHEALING_VM     ssh target of the VM  (default vamshi@172.16.120.137)
 #   SELFHEALING_NO_OPEN=1   do not open the browser
 set -euo pipefail
+# the system tools used below (lsof is in /usr/sbin) even from a minimal shell
+export PATH="$PATH:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
 # resolve the symlink in ~/.local/bin back to the repository
 REPO="$(cd "$(dirname "$(python3 -c 'import os,sys;print(os.path.realpath(sys.argv[1]))' "$0")")/.." && pwd)"
@@ -41,7 +43,7 @@ case "$MODE" in
       >"$REPO/.run/dashboard.log" 2>&1 &
     echo $! >"$REPO/.run/dashboard.pid"
     if wait_for "http://127.0.0.1:$PORT" 60; then
-      echo "Ready: http://127.0.0.1:$PORT   (stop with: SelfHealingStop)"
+      echo "Ready: http://127.0.0.1:$PORT   (sign in: root / toor unless VIEWER_USER/VIEWER_PASSWORD are set; stop with: SelfHealingStop)"
       open_url "http://127.0.0.1:$PORT"
     else
       echo "The dashboard did not come up within 60 s. Last log lines:" >&2
@@ -55,7 +57,7 @@ case "$MODE" in
     ssh -o ConnectTimeout=8 "$VM" 'cd ~/SelfHealing && docker compose up -d >/dev/null 2>&1 && make live-dashboard-stop >/dev/null 2>&1; make live-dashboard >/dev/null 2>&1' \
       || { echo "Could not reach $VM over ssh. Is the VM running and awake?" >&2; exit 1; }
     if wait_for "http://$host:8000" 90; then
-      echo "Ready: http://$host:8000   (failures and attacks open after ~2.5 min of learning)"
+      echo "Ready: http://$host:8000   (sign in: root / toor; failures and attacks open after ~2.5 min of learning)"
       echo "Stop with: SelfHealingStop live"
       open_url "http://$host:8000"
     else

@@ -142,13 +142,17 @@ For the live lab: <code>SelfHealingStart live</code> / <code>SelfHealingStop liv
   <tr><th style="width:38%">Problem</th><th>Fix</th></tr>
   <tr><td>Mac: "Address already in use"</td><td>another dashboard runs: <code>SelfHealingStop</code> (or just use <code>SelfHealingStart</code>, which frees the port itself)</td></tr>
   <tr><td>Live lab page does not open</td><td>on the VM: <code>docker compose ps</code> (both "healthy"?), then <code>make live-dashboard-logs</code></td></tr>
+  <tr><td>Login says "Too many attempts"</td><td>5 wrong passwords lock your address for a minute; wait, then use <code>root</code> / <code>toor</code></td></tr>
+  <tr><td>Sent back to the login page</td><td>the session ended (12 h, sign-out, or the dashboard restarted): sign in again</td></tr>
   <tr><td>"the predictor is still learning…"</td><td>normal for the first ~2.5 min of the live lab; wait for the countdown</td></tr>
   <tr><td>Live tests fail right away</td><td>the dashboard and the tests share one network: <code>make live-dashboard-stop</code> first</td></tr>
   <tr><td>VM build error "server misbehaving"</td><td>the VM's DNS hiccupped; run the same command again</td></tr>
   <tr><td>Cannot paste into the VM window</td><td>use <code>ssh vamshi@&lt;vm-ip&gt;</code> from the Mac terminal instead</td></tr>
 </table>
-<div class="note"><b>Safety:</b> the dashboard has no login and its controls change the network. Keep the VM on its
-private network; do not expose port 8000 to the internet.</div>
+<div class="note"><b>Sign in:</b> the dashboard asks for a login — user <code>root</code>, password <code>toor</code>
+(change with <code>VIEWER_USER</code> / <code>VIEWER_PASSWORD</code>). Sign out from the <b>R</b> menu at the top right.
+<b>Safety:</b> that default password is public and the connection is plain HTTP, and the controls change the network: keep the
+VM on its private network and never expose port 8000 to the internet.</div>
 
 </body>
 </html>

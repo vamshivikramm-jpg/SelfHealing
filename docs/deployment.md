@@ -55,7 +55,11 @@ offline preview, not the simulation mode.
 | `VIEWER_DECISIONS=1` | offline preview: run the decision engine |
 | `VIEWER_MODEL_DIR=dir` | use a trained model registry (needs numpy/scikit-learn) |
 
-Security: the viewer has **no login**. Operator controls exist only in
+Security: the dashboard needs a **login** (default user `root`, password
+`toor`; set `VIEWER_USER` / `VIEWER_PASSWORD` to change them, `VIEWER_AUTH=0`
+switches it off for development). Sessions are HttpOnly cookies valid for
+`VIEWER_SESSION_HOURS` (12); 5 wrong passwords lock an address out for a
+minute; `/api/health` stays public for the start/stop scripts. Operator controls exist only in
 simulation mode and answer 403 otherwise. Always bind to `127.0.0.1`.
 
 ## B. Live lab (Linux VM) — Module 1 verified
@@ -205,7 +209,9 @@ reach the VM). What to expect:
 
 Notes: `make net-test` and the live dashboard drive the same Mininet, so stop
 the dashboard before running tests (`tests/integration/test_live_runtime.py`
-skips itself while it runs). The dashboard has **no login** and its controls
+skips itself while it runs). The dashboard asks for a login (`root` / `toor` unless you set
+`VIEWER_USER` / `VIEWER_PASSWORD`), but the default password is public and the
+connection is plain HTTP, and its controls
 change the lab network: keep the VM on a private network, or publish it on
 one interface only with `DASHBOARD_BIND=<ip>` in `.env`. The live runtime
 clears blocks and pinned paths left in the controller by an earlier session.
