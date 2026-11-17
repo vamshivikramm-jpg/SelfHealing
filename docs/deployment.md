@@ -8,7 +8,7 @@ are in: everything verified so far ran in **setting A**.
 | Network | in-memory simulated data plane | Mininet + Open vSwitch + Ryu in Docker |
 | Telemetry | `SimulatedSource` (reads the simulated network's real state) | live sources: **not built yet** |
 | Self-healing execution | `SimulatedExecutor` | live executor: **not built yet** |
-| Status | Modules 1–9 tested (unit tests, evaluations, dashboard) | **Module 1 + failure control verified live** (13 integration tests); Modules 2–8 not yet |
+| Status | Modules 1–9 tested (unit tests, evaluations, dashboard) | **Module 1, failure control and the Ryu app verified live** (25 integration tests); Modules 2–8 not yet |
 
 ## A. Simulation setup
 
@@ -111,14 +111,23 @@ restarted with its controller) and a host go down and come back.
 `make net-test` runs the checked-out code (`PYTHONPATH=/workspace/network/src`),
 not the copy baked into the image.
 
+### Self-healing Ryu app (P2) — verified
+
+`controller/apps/selfhealing_app.py` replaces the L2 learning switch:
+proxy ARP, virtual gateways, loop-safe routing within and between subnets,
+blocks, port/flow statistics and a REST API (`controller/README.md`).
+`tests/integration/test_routing_live.py` (12 tests) checks inter-subnet
+routing for all 42 host pairs, gateway ping, blocks, stats, and on the
+redundant topology: no broadcast storm, failover when sw-a↔sw-b goes down,
+and traffic following a pinned path. After changing the app, rebuild its
+image: `docker build --network host -t selfhealing-ryu-controller ./controller && docker compose up -d`.
+
 ### Still needed before Modules 2–8 run live
 
-1. **Live telemetry sources**: Ryu OpenFlow port/flow statistics and
+1. **Live telemetry sources**: Ryu port statistics (`/sh/stats/ports`) and
    ping probes behind the existing `TelemetrySource` interface.
-2. **Live executor**: NetworkController calls + Ryu REST for routes and
-   Zero Trust rules.
-3. **Own Ryu forwarding app**: loop-aware paths (redundant topologies),
-   inter-subnet routing (rtr-core is an L2 switch today), REST API.
+2. **Live executor**: NetworkController calls + Ryu REST (pinned routes,
+   blocks) for healing actions and Zero Trust rules.
 
 ## Continuous integration
 
