@@ -16,6 +16,16 @@ and serves the REST API on ``--wsapi-port`` (default 8080):
   GET    /sh/stats/ports               latest port counters (polled every STATS_INTERVAL s)
   GET    /sh/stats/flows               latest flow counters
   GET    /sh/stats/links               measured per-link latency/loss (active probes)
+  GET    /sh/flows?after=ID&active=S    flows seen at host ports (decision + counters)
+  GET    /sh/zt                         Zero Trust rules in force
+  PUT    /sh/zt                         {"rules": [...]} replace them (runtime pushes these)
+  DELETE /sh/zt                         Zero Trust off (allow every flow)
+
+Zero Trust (table 0): the first IPv4 packet of every new flow from a host
+port comes to the controller, which evaluates the pushed rules (identity
+binding, then role access; default deny) and installs a per-flow allow or
+drop rule. Those rules' counters give per-flow volumes. Traffic arriving
+from another switch was already checked at its ingress switch.
 
 Link measurement: every SH_PROBE_INTERVAL s the controller sends a probe
 frame across each switch-to-switch link in both directions and an ARP probe
@@ -40,7 +50,7 @@ from ryu.controller import ofp_event
 from ryu.controller.handler import (CONFIG_DISPATCHER, DEAD_DISPATCHER,
                                     MAIN_DISPATCHER, set_ev_cls)
 from ryu.lib import hub
-from ryu.lib.packet import arp, ethernet, icmp, ipv4, packet
+from ryu.lib.packet import arp, ethernet, icmp, ipv4, packet, tcp, udp
 from ryu.ofproto import ofproto_v1_3
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -82,6 +92,9 @@ class SelfHealingApp(app_manager.RyuApp):
         self.installed = set()    # destination IPs with rules installed
         self.started = time.time()
         kwargs["wsgi"].register(RestApi, {APP_KEY: self})
+        self.zt = L.ZtTable()
+        self.flowlog = L.FlowLog()
+        self._pending = {}        # microflow key -> (flow id, time): dedupe packet-ins
         self.probes = L.ProbeBook(window_s=PROBE_WINDOW, timeout_s=1.0)
         self.ctrl_rtt = {}        # dpid -> controller<->switch round trip (s)
         self._seq = 0
@@ -126,7 +139,8 @@ class SelfHealingApp(app_manager.RyuApp):
             inst.append(parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS, self._actions(dp, rule["actions"])))
         dp.send_msg(parser.OFPFlowMod(datapath=dp, table_id=rule["table"], priority=rule["priority"],
                                       match=self._match(parser, rule["match"]), instructions=inst,
-                                      cookie=rule["cookie"], idle_timeout=FLOW_IDLE_TIMEOUT))
+                                      cookie=rule["cookie"],
+                                      idle_timeout=rule.get("idle_timeout", FLOW_IDLE_TIMEOUT)))
 
     def _delete(self, dp, table, cookie, mask=0xFFFFFFFFFFFFFFFF):
         parser, ofp = dp.ofproto_parser, dp.ofproto
@@ -160,12 +174,19 @@ class SelfHealingApp(app_manager.RyuApp):
         # replies to our ARP probes skip blocks: a blocked host's link is still measured
         self._install(dict(base, table=L.ACL_TABLE, priority=L.PRIO_BLOCK + 1000, goto=L.FWD_TABLE,
                            match={"eth_type": L.ARP, "eth_dst": (L.probe_mac(0), "ff:ff:00:00:00:00")}))
+        self._watch_rules(dp)
         self._install(dict(base, table=L.FWD_TABLE, priority=L.PRIO_PROBE,
                            match={"eth_type": L.PROBE_ETHERTYPE}, actions=[("controller",)]))
         for ethertype in (0x86DD, 0x88CC):  # IPv6, LLDP: not used, never to the controller
             self._install(dict(base, table=L.FWD_TABLE, priority=10, match={"eth_type": ethertype}))
         dp.send_msg(parser.OFPPortDescStatsRequest(dp, 0))
         self.logger.info("switch %s connected", self.state.topo.name_of.get(dp.id, hex(dp.id)))
+
+    def _watch_rules(self, dp):
+        base = {"dpid": dp.id, "cookie": L.COOKIE_BASE, "actions": [], "table": L.ACL_TABLE}
+        for port in sorted(self.state.topo.trunk_ports.get(dp.id, ())):
+            self._install(dict(base, priority=L.PRIO_TRUNK_BYPASS, match={"in_port": port}, goto=L.FWD_TABLE))
+        self._install(dict(base, priority=L.PRIO_WATCH, match={"eth_type": L.IPV4}, actions=[("controller",)]))
 
     @set_ev_cls(ofp_event.EventOFPPortDescStatsReply, [CONFIG_DISPATCHER, MAIN_DISPATCHER])
     def _port_desc(self, ev):
@@ -251,6 +272,9 @@ class SelfHealingApp(app_manager.RyuApp):
         if eth.ethertype == L.PROBE_ETHERTYPE:
             self._trunk_probe_in(dp, msg.data)
             return
+        if msg.table_id == L.ACL_TABLE and eth.ethertype == L.IPV4:
+            self._watch(dp, in_port, msg, pkt, eth)
+            return
         if self.state.learn(eth.src, dp.id, in_port):
             host = self.state.topo.host_by_mac.get(eth.src)
             if host:
@@ -281,6 +305,48 @@ class SelfHealingApp(app_manager.RyuApp):
             # resubmit through the pipeline (table 0 blocks still apply);
             # only when a rule will match, so it cannot loop back here
             self._packet_out(dp, dp.ofproto.OFPP_TABLE, msg.data, in_port=in_port)
+
+    def _watch(self, dp, in_port, msg, pkt, eth):
+        """First packet of a new flow at a host port: decide, record, install."""
+        ip = pkt.get_protocol(ipv4.ipv4)
+        if ip is None:
+            return
+        if self.state.learn(eth.src, dp.id, in_port):
+            host = self.state.topo.host_by_mac.get(eth.src)
+            if host:
+                self._install_destination(host["ip"])
+        l4 = pkt.get_protocol(tcp.tcp) or pkt.get_protocol(udp.udp)
+        dst_port = l4.dst_port if l4 is not None else None
+        match = L.microflow_match(in_port, eth.src, ip.src, ip.dst, ip.proto, dst_port)
+        key = (dp.id, tuple(sorted(match.items())))
+        now = time.time()
+        pending = self._pending.get(key)
+        if pending is not None and now - pending[1] < 2.0:
+            flow = self.flowlog.flows.get(pending[0])
+        else:
+            claims = L.flow_claims(self.state.topo, dp.id, in_port, eth.src, ip.src, ip.dst, dst_port)
+            allowed, reason = self.zt.admit(claims)
+            flow = self.flowlog.add(now, switch=self.state.topo.name_of.get(dp.id), in_port=in_port,
+                                    src=claims["src"], src_ip=ip.src, src_mac=claims["src_mac"],
+                                    dst=claims["dst"], dst_ip=ip.dst, proto=ip.proto, dst_port=dst_port,
+                                    allowed=allowed, reason=reason, bytes=len(msg.data))
+            self._pending[key] = (flow["id"], now)
+            self._install({"dpid": dp.id, "table": L.ACL_TABLE, "priority": L.PRIO_MICROFLOW, "match": match,
+                           "cookie": L.COOKIE_WATCH + flow["id"], "actions": [],
+                           "goto": L.FWD_TABLE if allowed else None, "idle_timeout": 15})
+            if len(self._pending) > 10000:
+                self._pending = {k: v for k, v in self._pending.items() if now - v[1] < 2.0}
+        if flow is not None and flow["allowed"]:
+            self._packet_out(dp, dp.ofproto.OFPP_TABLE, msg.data, in_port=in_port)
+
+    def set_zero_trust(self, rules):
+        changed = self.zt.set(rules)
+        if changed:  # every flow is decided again under the new rules
+            for dp in list(self.datapaths.values()):
+                self._delete(dp, L.ACL_TABLE, L.COOKIE_WATCH, L.COOKIE_WATCH_MASK)
+            self._pending.clear()
+        return {"enabled": self.zt.enabled, "version": self.zt.version, "changed": changed,
+                "rules": len(self.zt.rules)}
 
     def _handle_arp(self, dp, in_port, eth, a):
         if a.opcode == arp.ARP_REPLY and a.dst_mac.startswith(L.PROBE_MAC_PREFIX):
@@ -478,6 +544,11 @@ class SelfHealingApp(app_manager.RyuApp):
         flows = [{"table": f.table_id, "priority": f.priority, "cookie": f.cookie,
                   "match": dict(f.match.items()), "packets": f.packet_count, "bytes": f.byte_count}
                  for f in ev.msg.body]
+        now = time.time()
+        for f in ev.msg.body:
+            if f.cookie & L.COOKIE_WATCH_MASK == L.COOKIE_WATCH:
+                self.flowlog.update(f.cookie - L.COOKIE_WATCH, f.packet_count, f.byte_count, now)
+        self.flowlog.prune(now)
         self.flow_stats[name] = {"time": time.time(), "flows": flows}
 
     # ------------------------------------------------------------------
@@ -508,6 +579,7 @@ class SelfHealingApp(app_manager.RyuApp):
         for dpid, dp in self.datapaths.items():
             if dpid in topo.name_of:
                 self.state.connected.add(dpid)
+            self._watch_rules(dp)  # trunk ports of the new topology bypass the per-flow check
             dp.send_msg(dp.ofproto_parser.OFPPortDescStatsRequest(dp, 0))  # refresh port liveness
         self._recompute()
         return {"topology": fname}
@@ -627,6 +699,35 @@ class RestApi(ControllerBase):
     @route("sh", "/sh/stats/links", methods=["GET"])
     def link_stats(self, req, **_):
         return _json(self.app.link_measurements())
+
+    @route("sh", "/sh/flows", methods=["GET"])
+    def flows(self, req, **_):
+        try:
+            after = int(req.GET.get("after", 0))
+            active = float(req.GET.get("active", 10))
+        except ValueError:
+            return _json({"error": "after must be an int, active a number"}, 400)
+        now = time.time()
+        return _json({"time": now, "zt_enabled": self.app.zt.enabled, "zt_version": self.app.zt.version,
+                      "flows": self.app.flowlog.since(after, active, now)})
+
+    @route("sh", "/sh/zt", methods=["GET"])
+    def zt_get(self, req, **_):
+        return _json({"enabled": self.app.zt.enabled, "version": self.app.zt.version, "rules": self.app.zt.rules})
+
+    @route("sh", "/sh/zt", methods=["PUT"])
+    def zt_put(self, req, **_):
+        body = _body(req)
+        if not body or not isinstance(body.get("rules"), list):
+            return _json({"error": "body must be {\"rules\": [...]}"}, 400)
+        try:
+            return _json(self.app.set_zero_trust(body["rules"]))
+        except (ValueError, TypeError, KeyError) as exc:
+            return _json({"error": str(exc)}, 400)
+
+    @route("sh", "/sh/zt", methods=["DELETE"])
+    def zt_delete(self, req, **_):
+        return _json(self.app.set_zero_trust([]))
 
     @route("sh", "/sh/stats/flows", methods=["GET"])
     def flow_stats(self, req, **_):

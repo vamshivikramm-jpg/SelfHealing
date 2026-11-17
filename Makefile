@@ -53,7 +53,7 @@ net-status:
 # (Modules 2-9 need numpy/scikit-learn/FastAPI and run on the host or in CI.)
 NET_UNIT = tests/unit/test_topology.py tests/unit/test_network_control.py tests/unit/test_event_bus.py \
 	tests/unit/test_failure.py tests/unit/test_failure_manager.py tests/unit/test_failure_scenarios.py \
-	tests/unit/test_network_impairments.py tests/unit/test_mininet_control_paths.py tests/unit/test_ryu_logic.py tests/unit/test_live_backends.py
+	tests/unit/test_network_impairments.py tests/unit/test_mininet_control_paths.py tests/unit/test_ryu_logic.py tests/unit/test_live_backends.py tests/unit/test_live_zero_trust.py
 
 net-test:
 	docker compose up -d

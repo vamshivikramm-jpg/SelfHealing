@@ -44,6 +44,12 @@ PRIO_EGRESS_ROUTED = 110   # last switch, packet addressed to a gateway: rewrite
 PRIO_TRANSIT = 100
 PRIO_ARP = 200
 PRIO_PROBE = 300
+# table 0 (Zero Trust watch): microflow rules decided per flow
+PRIO_MICROFLOW = 500
+PRIO_TRUNK_BYPASS = 20     # traffic arriving from another switch was checked at its ingress
+PRIO_WATCH = 10            # first IPv4 packet of a new flow from a host port -> controller
+COOKIE_WATCH = 0x5700000000    # + flow id (microflow rules)
+COOKIE_WATCH_MASK = 0xFF00000000
 COOKIE_BASE = 0x5000          # table-miss / ARP / drop rules
 COOKIE_FWD = 0x5100           # per-destination forwarding rules
 COOKIE_BLOCK = 0x5B000000     # + block id
@@ -100,6 +106,7 @@ class Topology:
 
         # links: replay Mininet's Topo.addPort numbering for missing ports
         ports: Dict[str, int] = {}
+        self.edge_port: Dict[Tuple[int, int], str] = {}  # (dpid, port) -> device wired there
         self.links: List[Tuple[int, int, int, int]] = []  # (dpid_a, port_a, dpid_b, port_b)
         for link in topo.get("links") or []:
             src, dst = link["src"], link["dst"]
@@ -109,6 +116,9 @@ class Topology:
             ports[dst] = ports.get(dst, 0) + 1
             if src in self.dpid_of and dst in self.dpid_of:
                 self.links.append((self.dpid_of[src], int(sport), self.dpid_of[dst], int(dport)))
+            for sw, port, other in ((src, sport, dst), (dst, dport, src)):
+                if sw in self.dpid_of and other not in self.dpid_of:
+                    self.edge_port[(self.dpid_of[sw], int(port))] = other
         # switch <-> host links: (switch dpid, host name)
         self.access: List[Tuple[int, str]] = []
         for link in topo.get("links") or []:
@@ -247,6 +257,10 @@ class ForwardingState:
         Returns True if it is new or moved."""
         if self.topo.is_trunk(dpid, port) or mac in self.topo.gateways.values():
             return False
+        owner = self.topo.host_by_mac.get(mac)
+        wired = self.topo.edge_port.get((dpid, port))
+        if owner is not None and wired is not None and owner["name"] != wired:
+            return False  # port security: a MAC claimed from someone else's port
         old = self.host_loc.get(mac)
         self.host_loc[mac] = (dpid, port)
         return old != (dpid, port)
@@ -386,6 +400,119 @@ class ForwardingState:
         targets = [self.topo.dpid_of[block["switch"]]] if block["switch"] else sorted(self.connected)
         return [dict(_rule(d, PRIO_BLOCK, block["match"], []), table=ACL_TABLE,
                      cookie=COOKIE_BLOCK + block["id"]) for d in targets]
+
+
+class ZtTable:
+    """Zero Trust rules pushed by the runtime (``FlowRule`` dicts from
+    ``network.security.enforcement.compile_rules``), evaluated per new flow
+    exactly like ``SimulatedEnforcer``: table 0 (identity binding) then
+    table 1 (access), first match by priority wins.
+
+    Claims: ``src`` (device wired to the ingress port), ``src_ip``,
+    ``src_mac``, ``dst`` (device name, or ``gateway``), ``port``. Flows
+    without a destination port (ICMP) are not subject to the role rules
+    (monitoring pings), only to identity binding and quarantine: in table 1
+    they see just the per-device rules (quarantine drop / gateway allow).
+    """
+
+    def __init__(self, rules: Optional[List[dict]] = None):
+        self.rules: List[dict] = []
+        self.version = 0
+        if rules is not None:
+            self.set(rules)
+
+    @property
+    def enabled(self) -> bool:
+        return bool(self.rules)
+
+    def set(self, rules: List[dict]) -> bool:
+        clean = []
+        for r in rules:
+            if r.get("action") not in ("allow", "drop") or int(r.get("table", -1)) not in (0, 1):
+                raise ValueError(f"bad rule {r!r}")
+            clean.append({"table": int(r["table"]), "priority": int(r["priority"]), "action": r["action"],
+                          "match": dict(r.get("match") or {}), "reason": r.get("reason", "")})
+        clean.sort(key=lambda r: (r["table"], -r["priority"], sorted(r["match"].items())))
+        changed = clean != self.rules
+        if changed:
+            self.rules = clean
+            self.version += 1
+        return changed
+
+    def admit(self, claims: dict) -> Tuple[bool, str]:
+        if not self.rules:
+            return True, "zero trust off"
+        icmp = claims.get("port") is None
+        reason = ""
+        for table in (0, 1):
+            candidates = [r for r in self.rules if r["table"] == table]
+            if icmp and table == 1:
+                candidates = [r for r in candidates if r["match"] and "port" not in r["match"]]
+            rule = next((r for r in candidates if all(claims.get(k) == v for k, v in r["match"].items())), None)
+            if rule is None:
+                if icmp and table == 1:
+                    return True, reason + " (monitoring ping)"
+                return False, f"no rule in table {table}"
+            if rule["action"] == "drop":
+                return False, rule["reason"]
+            reason = rule["reason"]
+        return True, reason
+
+
+def flow_claims(topo: "Topology", dpid: int, in_port: int, src_mac: str, src_ip: str, dst_ip: str,
+                dst_port: Optional[int]) -> dict:
+    dst = "gateway" if dst_ip in topo.gateways else (topo.host_by_ip.get(dst_ip) or {}).get("name", dst_ip)
+    return {"src": topo.edge_port.get((dpid, in_port), "unknown"), "src_ip": src_ip,
+            "src_mac": src_mac.lower(), "dst": dst, "port": dst_port}
+
+
+def microflow_match(in_port: int, src_mac: str, src_ip: str, dst_ip: str, proto: int,
+                    dst_port: Optional[int]) -> dict:
+    match = {"in_port": in_port, "eth_src": src_mac, "eth_type": IPV4, "ipv4_src": src_ip,
+             "ipv4_dst": dst_ip, "ip_proto": proto}
+    if proto == 6 and dst_port is not None:
+        match["tcp_dst"] = dst_port
+    elif proto == 17 and dst_port is not None:
+        match["udp_dst"] = dst_port
+    return match
+
+
+class FlowLog:
+    """Flows seen at host ports, with cumulative counters from the switch."""
+
+    def __init__(self, keep_s: float = 120.0, max_flows: int = 5000):
+        self.keep_s = keep_s
+        self.max_flows = max_flows
+        self.flows: Dict[int, dict] = {}
+        self._next = 1
+
+    def add(self, now: float, **fields) -> dict:
+        flow = dict(fields, id=self._next, first_seen=now, last_seen=now, packets=1,
+                    bytes=fields.get("bytes", 64))
+        self.flows[flow["id"]] = flow
+        self._next += 1
+        if len(self.flows) > self.max_flows:
+            for fid in sorted(self.flows)[: len(self.flows) - self.max_flows]:
+                del self.flows[fid]
+        return flow
+
+    def update(self, flow_id: int, packets: int, bytes_: int, now: float) -> None:
+        flow = self.flows.get(flow_id)
+        if flow is None:
+            return
+        if packets > flow["packets"] or bytes_ > flow["bytes"]:
+            flow["last_seen"] = now
+        flow["packets"] = max(flow["packets"], packets)
+        flow["bytes"] = max(flow["bytes"], bytes_)
+
+    def prune(self, now: float) -> None:
+        for fid in [f for f, v in self.flows.items() if now - v["last_seen"] > self.keep_s]:
+            del self.flows[fid]
+
+    def since(self, after_id: int = 0, active_s: Optional[float] = None, now: Optional[float] = None) -> list:
+        rows = [f for f in self.flows.values()
+                if f["id"] > after_id or (active_s is not None and now - f["last_seen"] <= active_s)]
+        return sorted(rows, key=lambda f: f["id"])
 
 
 def normalise_block_match(match: dict) -> dict:
