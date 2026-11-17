@@ -54,8 +54,10 @@ def bar_chart(title: str, labels: Sequence[str], means: Sequence[Optional[float]
         if m is not None:
             parts.append(f'<rect x="{cx - bw * 0.32:.1f}" y="{y(m):.1f}" width="{bw * 0.64:.1f}" '
                          f'height="{max(0.0, T + ph - y(m)):.1f}" fill="{color}" opacity="0.85"/>')
-            parts.append(f'<text x="{cx:.1f}" y="{y(m) - 6:.1f}" font-size="11" text-anchor="middle" fill="#222">{_fmt(m)}</text>')
         lo, hi = lows[i], highs[i]
+        if m is not None:  # label above the bar or its CI whisker, whichever is higher
+            label_y = y(max(m, hi if hi is not None else m)) - 6
+            parts.append(f'<text x="{cx:.1f}" y="{label_y:.1f}" font-size="11" text-anchor="middle" fill="#222">{_fmt(m)}</text>')
         if lo is not None and hi is not None:
             parts.append(f'<line x1="{cx:.1f}" x2="{cx:.1f}" y1="{y(max(lo, 0)):.1f}" y2="{y(hi):.1f}" stroke="#222"/>')
             for v in (max(lo, 0), hi):

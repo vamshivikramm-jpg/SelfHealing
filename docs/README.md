@@ -2,19 +2,21 @@
 
 Design and research documentation for the project. Implemented one module at a time; see the development roadmap for ordering.
 
-## Blueprint Documents
+## Documents
 
 | Document | Description |
 |---|---|
-| [architecture.md](architecture.md) | System architecture, module interaction matrix, high-level data flow |
-| [modules.md](modules.md) | Per-module responsibilities and interfaces |
-| [database-schema.md](database-schema.md) | ER diagram, table catalog, constraints |
-| [api-design.md](api-design.md) | REST endpoints: method, request, response, status codes |
-| [class-diagrams.md](class-diagrams.md) | Interfaces, abstract classes, services, repositories, controllers (SOLID) |
-| [sequence-diagrams.md](sequence-diagrams.md) | Failure prediction, healing, trust verification, decision making |
-| [docker-deployment.md](docker-deployment.md) | Container architecture, networks, compose topology |
-| [development-roadmap.md](development-roadmap.md) | Phase-by-phase build plan with exit criteria |
-| [research-contribution.md](research-contribution.md) | Novelty, existing approaches, proposed algorithm, mathematical model, comparison, metrics, evaluation methodology — basis of the IEEE paper and final report |
+| [results.md](results.md) | Results chapter: 10-seed experiments, statistics, figures, threats to validity |
+| [deployment.md](deployment.md) | Setup (simulation and Linux lab), every command, settings, CI, troubleshooting |
+| [demo-script.md](demo-script.md) | ~15 minute presentation walkthrough of the dashboard |
+| [research-contribution.md](research-contribution.md) | Novelty, mathematical model, metrics and evaluation methodology (basis of the paper and report) |
+| [results/full-run/](results/full-run/report.md) | Archived raw data, auto-generated report and figures of the full experiment run |
+| [../network/README.md](../network/README.md) | Per-module technical documentation (Modules 1–9) |
+
+Planned blueprint documents that were listed here originally but never
+written (architecture, modules, database schema, API design, class and
+sequence diagrams, Docker deployment, development roadmap) are covered for
+now by `network/README.md`, `deployment.md` and the module docstrings.
 
 ## Status
 
@@ -26,4 +28,5 @@ Design and research documentation for the project. Implemented one module at a t
 - **Module 6 (Intelligent Decision Engine): IMPLEMENTED, EVALUATED IN SIMULATION** — Eq. 4 combined risk, NDO intents with post-conditions, Eq. 6 constrained shortest paths and load balancing, conflict/cooldown/approval safety checks (autonomy L1–L3), live decision loop. End-to-end evaluation (3 × 3 h, 54 failures and attacks, redundant simulation-only topology): every incident got the action the written rules expect, 0 missed, 0 unneeded actions/hour, p95 decision latency 0.33 ms. Decides only; execution is Module 7.
 - **Module 7 (Autonomous Self-Healing): IMPLEMENTED, EVALUATED IN SIMULATION** — physical-fault model (software cannot fix a cut cable or dead switch; telemetry reads real simulated state), route-aware traffic-delivery model, executor with undo, post-condition verification from telemetry/delivery/enforcement probes, retry and escalation, fail-back, closed loop of Modules 2–7. Evaluation (3 × 3 h, 17 outages, 6 physical): MTTR 80 s → 23 s, user-visible loss 93 % → 32 %, every software-fixable outage healed before manual repair; without verification 6 failed repairs were falsely reported successful. No live executor yet.
 - **Module 8 (Advanced Dashboard): IMPLEMENTED** — tabbed dashboard (live topology with health/reroute/prediction/quarantine overlays, telemetry charts, predictions, Zero Trust, decisions with approve/reject, healing with verification evidence, timeline, analytics) and a simulation mode that runs the full Modules 2–7 loop on the wall clock with operator controls (inject failures/attacks, autonomy, scripted demo). Controls exist only in simulation mode; the viewer is read-only otherwise (no login). Checked in a real browser.
+- **Module 9 (Research Evaluation & Deployment): IMPLEMENTED** — reproducible experiment runner (fixed seeds, provenance, 10 runs per condition, 95 % CIs, paired Wilcoxon + Holm), baselines (a)–(d) and ablations (§9.2, §9.4), sensitivity and scalability, results chapter [`results.md`](results.md) with archived raw data, [`deployment.md`](deployment.md), [`demo-script.md`](demo-script.md), and CI (GitHub Actions, Python 3.9 + 3.11). All results are on the simulated network.
 - Research contribution document: v1.0 drafted
