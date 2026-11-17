@@ -52,6 +52,7 @@ class Lab:
         self.anomalies = defaultdict(set)   # subject -> kinds
         self.flows = 0
         self.denied = defaultdict(int)
+        self.packets = []  # per step: sender -> packets
 
     def steps(self, n):
         for _ in range(n):
@@ -59,6 +60,10 @@ class Lab:
             flows, auth = self.feed.step(ts)
             result = self.engine.step(ts, flows, auth)
             self.flows += len(flows)
+            per = defaultdict(int)
+            for flow in flows:
+                per[flow.src] += flow.packets
+            self.packets.append(dict(per))
             for flow, decision, _ in result.decided:
                 if not decision.allowed:
                     self.denied[flow.src] += 1
@@ -125,8 +130,10 @@ def test_manual_block_enforced_and_lifted(lab):
 ])
 def test_attack_detected(lab, kind, attacker, expected):
     lab.anomalies.clear()
-    lab.traffic.launch_attack(kind, attacker, duration_s=24, pps=1000)
+    lab.packets.clear()
+    lab.traffic.launch_attack(kind, attacker, duration_s=24)
     lab.steps(12)
     seen = lab.anomalies.get(attacker, set())
-    assert seen & expected, f"{kind} from {attacker}: detected {seen}; all: {dict(lab.anomalies)}"
+    sent = [step.get(attacker, 0) for step in lab.packets]
+    assert seen & expected, f"{kind} from {attacker}: detected {seen}; its packets per step {sent}"
     lab.steps(3)  # let it finish

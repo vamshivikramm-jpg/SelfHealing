@@ -180,7 +180,7 @@ class LiveTraffic:
                     identity.name, ["client", "--name", identity.name, "--config-dir", self.config_dir])
 
     def launch_attack(self, kind: str, attacker: str, duration_s: float = 60.0, target: Optional[str] = None,
-                      victim: Optional[str] = None, pps: int = 2000) -> dict:
+                      victim: Optional[str] = None, pps: int = 4000) -> dict:
         web = self.registry.with_role("web_server")[0]
         db = self.registry.with_role("db_server")[0]
         if target is None:

@@ -22,7 +22,7 @@ the five simulated kinds done for real:
 | brute_force | ~1.6 wrong-password logins per second on port 443 |
 | spoofing | raw TCP SYNs to port 22 carrying another device's IP and MAC |
 | lateral_movement | connection attempts to ports 22, 5432 and 3389 |
-| flood | UDP datagrams to port 80 at ``--pps`` (default 2000/s) |
+| flood | UDP datagrams to port 80 at ``--pps`` (default 4000/s, ~16 Mbit/s) |
 
 Everything is standard library; attacks stop by themselves after
 ``--duration`` seconds.
@@ -163,7 +163,7 @@ def spoofed_syn(src_mac: str, dst_mac: str, src_ip: str, dst_ip: str, sport: int
     return eth + ip + tcp
 
 
-def attack(kind: str, target: str, duration: float, pps: int = 2000, iface: str = "",
+def attack(kind: str, target: str, duration: float, pps: int = 4000, iface: str = "",
            victim_ip: str = "", victim_mac: str = "", dst_mac: str = "") -> int:
     if kind not in ATTACK_KINDS:
         raise SystemExit(f"unknown attack {kind!r}; use one of {ATTACK_KINDS}")
@@ -223,7 +223,7 @@ def main(argv=None) -> int:
     a.add_argument("--kind", required=True, choices=ATTACK_KINDS)
     a.add_argument("--target", required=True)
     a.add_argument("--duration", type=float, default=60.0)
-    a.add_argument("--pps", type=int, default=2000)
+    a.add_argument("--pps", type=int, default=4000)
     a.add_argument("--iface", default="")
     a.add_argument("--victim-ip", default="")
     a.add_argument("--victim-mac", default="")
