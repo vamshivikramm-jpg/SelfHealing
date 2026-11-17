@@ -121,8 +121,23 @@ class LiveRuntime(SimulationRuntime):
         self.enforcer = attach_live_enforcer(loop.security, client)
         return loop
 
+    def reset_controller_state(self) -> dict:
+        """Remove every block and pinned path in the Ryu app. They belong to
+        healing actions of an earlier session (the controller outlives the
+        dashboard) and would otherwise keep devices cut off."""
+        removed = {"blocks": 0, "pins": 0}
+        for block in self.client.blocks() or []:
+            self.client.unblock(block["id"])
+            removed["blocks"] += 1
+        for ip, info in (self.client.routes() or {}).items():
+            if info.get("pinned"):
+                self.client.unpin(ip)
+                removed["pins"] += 1
+        return removed
+
     def _start_network(self) -> None:
         self.client.set_topology(self.topology_file)
+        self.cleared_at_start = self.reset_controller_state()
         self.controller.start_network()
         net = self.controller._net
         deadline = time.time() + 45
@@ -189,6 +204,7 @@ class LiveRuntime(SimulationRuntime):
         try:
             self.hosts.stop()
             self.client.request("DELETE", "/sh/zt")
+            self.reset_controller_state()
         except Exception:  # noqa: BLE001
             pass
         try:
