@@ -85,11 +85,32 @@ class LiveSecurityFeed:
         self._offsets: Dict[str, int] = {}
         self.last_error: Optional[str] = None
         self.skipped = 0
+        self._baseline: Optional[int] = None  # flows up to this id predate the feed
+
+    def _start(self) -> None:
+        """Ignore flows the controller recorded before this feed existed
+        (it keeps them for a while, e.g. from a previous run)."""
+        try:
+            body = self.client.request("GET", "/sh/flows?after=0&active=0")
+            self._baseline = max((int(f["id"]) for f in body.get("flows", [])), default=0)
+        except Exception as exc:  # noqa: BLE001
+            self.last_error = str(exc)
+            return
+        self._max_id = self._baseline
+        for path in self.auth_logs.values():  # and logins already in the logs
+            try:
+                self._offsets[path] = os.path.getsize(path)
+            except OSError:
+                pass
 
     def step(self, ts: float) -> Tuple[List[FlowRecord], List[AuthEvent]]:
         return self._flows(ts), self._auth(ts)
 
     def _flows(self, ts: float) -> List[FlowRecord]:
+        if self._baseline is None:
+            self._start()
+            if self._baseline is None:
+                return []
         try:
             body = self.client.request("GET", f"/sh/flows?after={self._max_id}&active={self.active_s}")
             self.last_error = None
@@ -99,6 +120,8 @@ class LiveSecurityFeed:
         out = []
         for f in body.get("flows", []):
             fid = int(f["id"])
+            if fid <= self._baseline:
+                continue
             previous = self._counts.get(fid)
             delta = int(f["packets"]) - (previous or 0)
             self._counts[fid] = int(f["packets"])

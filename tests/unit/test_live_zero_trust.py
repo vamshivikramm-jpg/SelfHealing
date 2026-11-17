@@ -144,6 +144,8 @@ class FakeClient:
             self.pushed.append(body["rules"])
             return {"changed": True}
         if method == "GET" and path.startswith("/sh/flows"):
+            if "active=0" in path:
+                return {"flows": getattr(self, "old", [])}
             return {"flows": self.flows}
         raise AssertionError(path)
 
@@ -165,13 +167,16 @@ def test_feed_turns_counters_into_step_records(world, tmp_path):
     _, registry, _, _ = world
     client = FakeClient()
     log = tmp_path / "auth.log"
+    log.write_text("")
     feed = LiveSecurityFeed(client, registry, {"srv-web-1": str(log)})
+    assert feed.step(0.5) == ([], [])  # starts the feed: nothing recorded before now counts
     flow = {"id": 1, "src": "h2", "src_ip": "10.0.1.11", "src_mac": "02:00:0a:00:01:0b", "dst": "srv-web-1",
             "dst_port": 443, "proto": 6, "packets": 10, "bytes": 8000}
     ping = dict(flow, id=2, dst_port=None, proto=1)
     client.flows = [flow, ping]
-    log.write_text(json.dumps({"ts": 1, "src_ip": "10.0.2.10", "port": 443, "account": "root",
-                               "success": False}) + "\n")
+    with open(log, "a") as fh:
+        fh.write(json.dumps({"ts": 1, "src_ip": "10.0.2.10", "port": 443, "account": "root",
+                             "success": False}) + "\n")
     flows, auth = feed.step(1.0)
     assert [(f.src, f.dst_port, f.packets, f.bytes) for f in flows] == [("h2", 443, 10, 8000)]
     assert [(a.device, a.target, a.account, a.success) for a in auth] == [("h4", "srv-web-1", "root", False)]
@@ -211,3 +216,16 @@ def test_feed_skips_replies(world):
     client.flows = [{"id": 1, "src": "srv-web-1", "src_ip": "10.0.1.20", "src_mac": "x", "dst": "h2",
                      "dst_port": None, "src_port": 443, "reply": True, "proto": 6, "packets": 9, "bytes": 900}]
     assert feed.step(1.0) == ([], []) and feed.skipped == 1
+
+
+def test_feed_ignores_flows_and_logins_from_before_it_started(world, tmp_path):
+    _, registry, _, _ = world
+    client = FakeClient()
+    old = {"id": 7, "src": "h4", "src_ip": "10.0.1.10", "src_mac": "02:00:0a:00:01:0a", "dst": "srv-db-1",
+           "dst_port": 22, "proto": 6, "packets": 23, "bytes": 1500}
+    client.old = [old]
+    log = tmp_path / "auth.log"
+    log.write_text(json.dumps({"ts": 1, "src_ip": "10.0.2.10", "account": "root", "success": False}) + "\n")
+    feed = LiveSecurityFeed(client, registry, {"srv-web-1": str(log)})
+    client.flows = [dict(old, packets=30)]
+    assert feed.step(1.0) == ([], [])

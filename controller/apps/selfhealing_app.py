@@ -590,6 +590,9 @@ class SelfHealingApp(app_manager.RyuApp):
         self.state = L.ForwardingState(topo)
         self.state.blocks = blocks
         self.topology_file = fname
+        self.flowlog = L.FlowLog()  # flows of the previous network are meaningless now
+        self._pending.clear()
+        self.connections.clear()
         for dpid, dp in self.datapaths.items():
             if dpid in topo.name_of:
                 self.state.connected.add(dpid)
