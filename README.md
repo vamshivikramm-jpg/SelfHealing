@@ -44,6 +44,15 @@ Two ways to run it:
 | Failures / attacks | synthetic | change the emulated network / real programs in the hosts |
 | Ready after | ~15 s (predictor trained on simulated runs) | ~20 s; failures and attacks after ~2.5 min (predictor learns live traffic) |
 
+**Shortcuts** (no more killing the port by hand): `scripts/SelfHealingStart`
+frees port 8000, starts the dashboard in the background, waits until it is
+ready and opens the browser; `scripts/SelfHealingStop` stops it. Add `live`
+for the live lab on the VM (`SelfHealingStart live`, `SelfHealingStop live`,
+`SelfHealingStop all`). Make them commands anywhere with
+`ln -sf "$PWD"/scripts/SelfHealing{Start,Stop} ~/.local/bin/` (any directory
+on your `PATH`). The VM defaults to `vamshi@172.16.120.137`; override with
+`SELFHEALING_VM=user@host`.
+
 Simulation mode needs the `mininet` Python package (imports only), numpy
 and scikit-learn — the macOS system `python3` has them; the project
 `.venv` does not, and there the dashboard falls back to the read-only

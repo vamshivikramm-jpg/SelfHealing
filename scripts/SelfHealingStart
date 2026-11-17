@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# Start the Self-Healing dashboard.
+#
+#   SelfHealingStart            simulation dashboard on this computer (http://127.0.0.1:8000)
+#   SelfHealingStart live       live-lab dashboard on the VM (http://<vm>:8000)
+#
+# Whatever already uses the port is stopped first, so you never have to
+# kill it by hand. The local dashboard runs in the background; its log is
+# in .run/dashboard.log inside the repository. Stop with SelfHealingStop.
+#
+# Settings (environment variables, optional):
+#   SELFHEALING_PORT   local port            (default 8000)
+#   SELFHEALING_VM     ssh target of the VM  (default vamshi@172.16.120.137)
+#   SELFHEALING_NO_OPEN=1   do not open the browser
+set -euo pipefail
+
+# resolve the symlink in ~/.local/bin back to the repository
+REPO="$(cd "$(dirname "$(python3 -c 'import os,sys;print(os.path.realpath(sys.argv[1]))' "$0")")/.." && pwd)"
+PORT="${SELFHEALING_PORT:-8000}"
+VM="${SELFHEALING_VM:-vamshi@172.16.120.137}"
+MODE="${1:-sim}"
+
+open_url() { [ "${SELFHEALING_NO_OPEN:-0}" = "1" ] || open "$1" >/dev/null 2>&1 || true; }
+
+wait_for() {  # url, seconds
+  local url="$1" i
+  for ((i = 0; i < $2; i++)); do
+    curl -fs -m 2 "$url/api/health" >/dev/null 2>&1 && return 0
+    sleep 1
+  done
+  return 1
+}
+
+case "$MODE" in
+  sim|simulation|local)
+    "$REPO/scripts/SelfHealingStop" sim --quiet || true
+    mkdir -p "$REPO/.run"
+    cd "$REPO"
+    echo "Starting the simulation dashboard on port $PORT ..."
+    VIEWER_MODE=simulation nohup /usr/bin/python3 -m uvicorn viewer.app:app --host 127.0.0.1 --port "$PORT" \
+      >"$REPO/.run/dashboard.log" 2>&1 &
+    echo $! >"$REPO/.run/dashboard.pid"
+    if wait_for "http://127.0.0.1:$PORT" 60; then
+      echo "Ready: http://127.0.0.1:$PORT   (stop with: SelfHealingStop)"
+      open_url "http://127.0.0.1:$PORT"
+    else
+      echo "The dashboard did not come up within 60 s. Last log lines:" >&2
+      tail -n 20 "$REPO/.run/dashboard.log" >&2
+      exit 1
+    fi
+    ;;
+  live|vm|lab)
+    host="${VM#*@}"
+    echo "Starting the live lab on $VM ..."
+    ssh -o ConnectTimeout=8 "$VM" 'cd ~/SelfHealing && docker compose up -d >/dev/null 2>&1 && make live-dashboard-stop >/dev/null 2>&1; make live-dashboard >/dev/null 2>&1' \
+      || { echo "Could not reach $VM over ssh. Is the VM running and awake?" >&2; exit 1; }
+    if wait_for "http://$host:8000" 90; then
+      echo "Ready: http://$host:8000   (failures and attacks open after ~2.5 min of learning)"
+      echo "Stop with: SelfHealingStop live"
+      open_url "http://$host:8000"
+    else
+      echo "The live dashboard did not answer within 90 s; see: ssh $VM 'cd ~/SelfHealing && make live-dashboard-logs'" >&2
+      exit 1
+    fi
+    ;;
+  -h|--help|help)
+    sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'
+    ;;
+  *)
+    echo "usage: SelfHealingStart [sim|live]" >&2
+    exit 2
+    ;;
+esac
