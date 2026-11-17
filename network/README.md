@@ -37,14 +37,15 @@ config/enterprise.yaml  Example enterprise topology
 
 | Class  | Underlying | Role |
 |---|---|---|
-| `Router` | OVS switch | Multi-subnet gateway; interfaces declared in config. Routing (L3 forwarding between subnets) is a later module. |
+| `Router` | OVS switch | Multi-subnet core; the subnet gateways are virtual (answered by the Ryu app), routing happens on every switch |
 | `Switch` | OVS switch | L2 access/distribution switching |
 | `Host`   | Mininet host | End-user namespace with static IP + default route |
 | `Server` | Mininet host | Server namespace; `services` metadata (http, postgres, ...) |
 
 All switches are OpenFlow 1.3 datapaths bound to the Ryu controller, which
-runs `topology_controller.py` (registry) + `l2_forwarding.py` (L2 learning
-switch, enabling same-subnet connectivity).
+runs `controller/apps/selfhealing_app.py`: proxy ARP, virtual gateways,
+loop-safe shortest-path routing within and between subnets, blocks, port/flow
+statistics and a REST API (see `controller/README.md`).
 
 ## Topology config schema
 

@@ -237,7 +237,7 @@ our experiments show exactly this (about 2 false reports per 3-hour run).</div>
   <tr><th>Folder</th><th>Contents</th></tr>
   <tr><td><code>network/config/</code></td><td>Topology, identities, Zero Trust policy, decision policy (all YAML, editable)</td></tr>
   <tr><td><code>network/src/network/</code></td><td><code>control</code>, <code>failure</code>, <code>telemetry</code>, <code>analytics</code>, <code>prediction</code>, <code>security</code>, <code>decision</code>, <code>healing</code>, <code>simulation</code>, <code>experiments</code></td></tr>
-  <tr><td><code>controller/apps/</code></td><td>Ryu applications (topology registry, L2 learning switch)</td></tr>
+  <tr><td><code>controller/apps/</code></td><td>Ryu application: loop-safe routing, proxy ARP, blocks, statistics, REST API</td></tr>
   <tr><td><code>viewer/</code></td><td>FastAPI backend + dashboard (HTML/JS/CSS)</td></tr>
   <tr><td><code>tests/unit/</code></td><td>469 automated tests</td></tr>
   <tr><td><code>docs/</code></td><td>Results chapter, deployment guide, demo script, research document</td></tr>
@@ -249,13 +249,17 @@ our experiments show exactly this (about 2 false reports per 3-hour run).</div>
 alternatives. Equation numbers (Eq. 2, Eq. 4 …) refer to our research document.</p>
 
 <h2>Module 1 — SDN foundation</h2>
-<div class="algo"><h3>L2 MAC-learning switch <span class="tag">Ryu</span></h3>
-<p><b>What:</b> when a packet arrives, the switch remembers "this MAC address lives behind this port". If it already
-knows the destination, it installs a forwarding rule; otherwise it floods the packet to all ports. Rules expire after
-30 s of inactivity.</p>
-<p><span class="why">Why:</span> it is the simplest correct forwarding for a single network segment, and it lets
-switches handle traffic without asking the controller for every packet. Its known limit: it floods in loops, which
-is why our redundant topologies are simulation-only until loop-aware forwarding is added.</p></div>
+<div class="algo"><h3>Loop-safe shortest-path routing with proxy ARP <span class="tag">Ryu</span></h3>
+<p><b>What:</b> the controller reads the same topology file as Mininet. It answers every ARP question itself (a
+host's IP &rarr; its registered MAC, a gateway IP &rarr; a virtual gateway MAC), so nothing is ever flooded between
+switches. For each destination host it computes a breadth-first shortest-path tree over the links that are up and
+installs one rule per switch ("packets for 10.0.2.10 leave through port 2"). At the last switch, routed packets get
+their MAC addresses rewritten and TTL decremented, so the whole network acts as one router. When a link or switch goes
+down, all paths are recomputed at once; the self-healing engine can also pin a path for a destination.</p>
+<p><span class="why">Why:</span> the classic MAC-learning switch floods unknown traffic, which circulates forever in a
+network with redundant links &mdash; and redundant links are exactly what self-healing needs. A tree per destination is
+loop-free by construction, BFS is fast for campus-sized networks, and because hosts' ARP messages only ever reach the
+controller, ARP spoofing between hosts has no effect.</p></div>
 <div class="algo"><h3>Topology validation <span class="tag">graph checks</span></h3>
 <p><b>What:</b> before building the network we check unique names and IDs, IPs inside their subnets, every link
 pointing at real devices, and every host having exactly one link.</p>

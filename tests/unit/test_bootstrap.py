@@ -22,7 +22,8 @@ REQUIRED_FILES = [
     "network/entrypoint.sh",
     "network/README.md",
     "controller/Dockerfile",
-    "controller/apps/topology_controller.py",
+    "controller/apps/selfhealing_app.py",
+    "controller/apps/sh_logic.py",
     "controller/README.md",
     "tests/smoke/test_bootstrap.sh",
 ]
@@ -56,10 +57,9 @@ def test_env_example_parses():
     assert not bad, f"invalid .env.example lines: {bad}"
 
 
-def test_topology_controller_compiles():
-    py_compile.compile(
-        str(ROOT / "controller/apps/topology_controller.py"), doraise=True
-    )
+def test_controller_apps_compile():
+    for name in ("selfhealing_app.py", "sh_logic.py"):
+        py_compile.compile(str(ROOT / "controller/apps" / name), doraise=True)
 
 
 def test_compose_config_valid():

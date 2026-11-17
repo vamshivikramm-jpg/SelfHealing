@@ -15,12 +15,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 RUN pip install "setuptools==57.5.0" wheel \
-    && pip install --no-build-isolation ryu==4.34 eventlet==0.30.2
+    && pip install --no-build-isolation ryu==4.34 eventlet==0.30.2 \
+    && pip install "PyYAML==6.0.1"
 
 WORKDIR /opt/controller
 COPY apps/ ./apps/
 
-EXPOSE 6653
+# 6653 OpenFlow, 8080 REST API (/sh/...)
+EXPOSE 6653 8080
 
 ENTRYPOINT ["ryu-manager", "--ofp-tcp-listen-port", "6653"]
-CMD ["apps/topology_controller.py", "apps/l2_forwarding.py"]
+CMD ["--wsapi-port", "8080", "apps/selfhealing_app.py"]

@@ -1,10 +1,10 @@
-# Enterprise topology with a redundant core link (Module 6, SIMULATION ONLY).
+# Enterprise topology with a redundant core link (Module 6).
 #
 # Same devices as enterprise.yaml plus a direct sw-a <-> sw-b link, so the
 # access switches have two routes to each other (direct, or via rtr-core).
-# Used to develop and test rerouting and load balancing in simulation.
-# Do NOT run it on Mininet yet: the loop needs loop-aware forwarding in
-# Ryu (the L2 learning switch would flood broadcasts around the loop).
+# Used for rerouting and load balancing, in simulation and on Mininet: the
+# self-healing Ryu app never floods across switch-to-switch links, so the
+# loop is safe (verified live by tests/integration/test_routing_live.py).
 #
 # Original header: Enterprise topology configuration (Submodule 1.2)
 # Reference schema: see network/README.md. Validated at load time by

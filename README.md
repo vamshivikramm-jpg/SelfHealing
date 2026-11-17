@@ -46,7 +46,7 @@ dashboard falls back to the read-only offline preview.
 | Component | Where | Status |
 |---|---|---|
 | Mininet + Open vSwitch data plane | `network/` | running (bootstrap + topology) |
-| Ryu SDN controller | `controller/` | running (registry + L2 learning switch) |
+| Ryu SDN controller | `controller/` | running (self-healing app: loop-safe routing, proxy ARP, blocks, stats, REST API) |
 | Enterprise topology generator | `network/src/network/` | Submodule 1.2 complete |
 | Network Control Layer | `network/src/network/control/` | Submodule 1.3 complete |
 | Failure Models & Registry | `network/src/network/failure/` | Submodule 1.4A complete |

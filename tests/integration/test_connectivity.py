@@ -4,7 +4,7 @@ Requires a running stack (mininet-net + ryu-controller):
     make net-test
 
 Verifies: switches connect to the Ryu controller, hosts/servers in the
-same subnet reach each other (L2 learning switch), and learning flows
+same subnet reach each other (self-healing Ryu app), and forwarding flows
 are actually installed on the data plane.
 """
 

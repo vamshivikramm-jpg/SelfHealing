@@ -28,6 +28,12 @@ services:
     container_name: ryu-controller
     ports:
       - "${RYU_PORT:-6653}:6653"
+    environment:
+      # topology the controller routes for (a file in network/config);
+      # can also be switched at run time: PUT http://ryu-controller:8080/sh/config
+      SH_TOPOLOGY: ${SH_TOPOLOGY:-enterprise.yaml}
+    volumes:
+      - ./network/config:/opt/controller/config:ro
     restart: unless-stopped
     networks:
       - emulation
