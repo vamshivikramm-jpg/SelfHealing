@@ -67,12 +67,12 @@ LIVE_DASHBOARD = cd /workspace && VIEWER_MODE=live PYTHONPATH=/workspace/network
 
 live-dashboard:
 	docker compose up -d
-	docker compose exec -d mininet-net bash -c "pgrep -f '[u]vicorn viewer.app' >/dev/null || ($(LIVE_DASHBOARD))"
+	docker compose exec -d mininet-net bash -c "pgrep -f '^python3 -m uvicorn viewer.app' >/dev/null || ($(LIVE_DASHBOARD))"
 	@echo "starting: the network comes up in ~20 s, then open http://<vm-ip>:8000"
 	@echo "(prediction learns normal traffic for the first ~3 minutes; make live-dashboard-logs shows progress)"
 
 live-dashboard-stop:
-	$(NET_EXEC) bash -c "pkill -TERM -f '[u]vicorn viewer.app' && sleep 8; mn -c >/dev/null 2>&1; echo stopped"
+	$(NET_EXEC) bash -c "pkill -TERM -f '^python3 -m uvicorn viewer.app' && sleep 8; mn -c >/dev/null 2>&1; echo stopped"
 
 live-dashboard-logs:
 	$(NET_EXEC) tail -n 50 -f /tmp/dashboard.log
