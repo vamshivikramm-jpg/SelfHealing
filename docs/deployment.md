@@ -8,7 +8,7 @@ are in: everything verified so far ran in **setting A**.
 | Network | in-memory simulated data plane | Mininet + Open vSwitch + Ryu in Docker |
 | Telemetry | `SimulatedSource` (reads the simulated network's real state) | live sources: **not built yet** |
 | Self-healing execution | `SimulatedExecutor` | live executor: **not built yet** |
-| Status | Modules 1–9 tested (unit tests, evaluations, dashboard) | **Module 1 verified live** (6 integration tests, 215 unit tests in the container); Modules 2–8 not yet |
+| Status | Modules 1–9 tested (unit tests, evaluations, dashboard) | **Module 1 + failure control verified live** (13 integration tests); Modules 2–8 not yet |
 
 ## A. Simulation setup
 
@@ -101,23 +101,24 @@ Lessons from the first live build (already fixed in the repository):
 - **Pasting commands**: the VM console has no clipboard; connect from the Mac
   with `ssh user@<vm-ip>` instead (`ip -4 addr show` shows the address).
 
-### Before the live network can run Modules 2–8 (Module 2.0 and beyond)
+### Live failure control (P1) — verified
 
-1. **Fix re-enabling nodes**: `NetworkController.enable_node` calls
-   `start()` without the controllers argument (switches) and hosts have no
-   `start()`; switches must be stopped with `deleteIntfs=False`.
-2. **Apply impairments for real**: build links with `TCLink` and configure
-   `intf.config(delay=, loss=, bw=)` (the current `configLinkImpairment`
-   call does not exist in Mininet).
-3. **Scenario state names** are reversed (`RESTORED` after execute).
-4. **Live telemetry sources**: Ryu OpenFlow port/flow statistics and
-   ping/iperf probes behind the existing `TelemetrySource` interface.
-5. **Live executor**: NetworkController calls + Ryu `ofctl_rest` for
-   routes and Zero Trust rules (rendering exists, untested).
-6. **MAC addresses** from `config/identities.yaml` must be assigned in Mininet.
-7. **Redundant topologies** (`enterprise-redundant.yaml`, generated campus)
-   need loop-aware forwarding in Ryu before they run on Mininet.
-8. **Inter-subnet routing** (rtr-core is an L2 switch today).
+`tests/integration/test_failures_live.py` (7 tests, run by `make net-test`)
+checks on the real network: identity MACs are assigned; 50 ms latency per
+direction raises ping RTT to ~100 ms and clears; 100 % loss stops traffic;
+a 5 Mbit bandwidth limit installs an htb rate; a link, a switch (OVS bridge
+restarted with its controller) and a host go down and come back.
+`make net-test` runs the checked-out code (`PYTHONPATH=/workspace/network/src`),
+not the copy baked into the image.
+
+### Still needed before Modules 2–8 run live
+
+1. **Live telemetry sources**: Ryu OpenFlow port/flow statistics and
+   ping probes behind the existing `TelemetrySource` interface.
+2. **Live executor**: NetworkController calls + Ryu REST for routes and
+   Zero Trust rules.
+3. **Own Ryu forwarding app**: loop-aware paths (redundant topologies),
+   inter-subnet routing (rtr-core is an L2 switch today), REST API.
 
 ## Continuous integration
 

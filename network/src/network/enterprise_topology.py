@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Dict, Optional
+
 from mininet.topo import Topo
 
 from network import devices
@@ -23,8 +25,9 @@ class EnterpriseTopology(Topo):
     static IPs and a default route to their subnet gateway.
     """
 
-    def __init__(self, config: TopologyConfig):
+    def __init__(self, config: TopologyConfig, macs: Optional[Dict[str, str]] = None):
         self.config = config
+        self._macs = dict(macs or {})
         self._device_index = {d.name: d for d in config.devices}
         super().__init__()
         self._build()
@@ -43,6 +46,8 @@ class EnterpriseTopology(Topo):
                 params = {"ip": dev.ip}
                 if dev.gateway:
                     params["defaultRoute"] = f"via {dev.gateway}"
+                if dev.name in self._macs:
+                    params["mac"] = self._macs[dev.name]
                 self.addHost(dev.name, cls=cls, **params)
 
         for link in self.config.links:

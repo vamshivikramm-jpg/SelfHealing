@@ -51,12 +51,12 @@ def test_scenario_router_failure_execute(manager):
     result = scenario.execute()
 
     assert result["class"] == "ScenarioRouterFailure"
-    assert result["state"] == "RESTORED"
+    assert result["state"] == "ACTIVE"
     assert result["failure"]["failure_type"] == "ROUTER"
     assert result["failure"]["router"] == "rtr-core"
     assert result["start_time"] is not None
 
-    assert scenario.status()["state"] == "RESTORED"
+    assert scenario.status()["state"] == "ACTIVE"
     assert scenario.status()["failure_id"] == result["failure"]["id"]
 
 
@@ -65,10 +65,10 @@ def test_scenario_router_failure_restore(manager):
     scenario.execute()
 
     result = scenario.restore()
-    assert result["state"] == "IDLE"
+    assert result["state"] == "RESTORED"
     assert result["failure"] is None
 
-    assert scenario.status()["state"] == "IDLE"
+    assert scenario.status()["state"] == "RESTORED"
 
 
 def test_scenario_router_failure_twice_raises(manager):
@@ -106,7 +106,7 @@ def test_scenario_switch_failure_restore(manager):
     scenario.execute()
 
     result = scenario.restore()
-    assert result["state"] == "IDLE"
+    assert result["state"] == "RESTORED"
     assert result["failure"] is None
 
 
@@ -130,7 +130,7 @@ def test_scenario_cable_cut_restore(manager):
     scenario.execute()
 
     result = scenario.restore()
-    assert result["state"] == "IDLE"
+    assert result["state"] == "RESTORED"
     assert result["failure"] is None
 
 
@@ -161,7 +161,7 @@ def test_scenario_high_latency_restore(manager):
     scenario.execute()
 
     result = scenario.restore()
-    assert result["state"] == "IDLE"
+    assert result["state"] == "RESTORED"
     assert result["failure"] is None
 
 
@@ -192,7 +192,7 @@ def test_scenario_packet_loss_restore(manager):
     scenario.execute()
 
     result = scenario.restore()
-    assert result["state"] == "IDLE"
+    assert result["state"] == "RESTORED"
     assert result["failure"] is None
 
 
@@ -216,7 +216,7 @@ def test_scenario_bandwidth_constraint_restore(manager):
     scenario.execute()
 
     result = scenario.restore()
-    assert result["state"] == "IDLE"
+    assert result["state"] == "RESTORED"
     assert result["failure"] is None
 
 
@@ -249,8 +249,8 @@ def test_scenario_multiple_scenarios_independent(manager):
     scenario1.restore()
     scenario2.restore()
 
-    assert scenario1.status()["state"] == "IDLE"
-    assert scenario2.status()["state"] == "IDLE"
+    assert scenario1.status()["state"] == "RESTORED"
+    assert scenario2.status()["state"] == "RESTORED"
 
 
 # --------------------------------------------------------------------------

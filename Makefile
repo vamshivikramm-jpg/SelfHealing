@@ -53,8 +53,8 @@ net-status:
 # (Modules 2-9 need numpy/scikit-learn/FastAPI and run on the host or in CI.)
 NET_UNIT = tests/unit/test_topology.py tests/unit/test_network_control.py tests/unit/test_event_bus.py \
 	tests/unit/test_failure.py tests/unit/test_failure_manager.py tests/unit/test_failure_scenarios.py \
-	tests/unit/test_network_impairments.py
+	tests/unit/test_network_impairments.py tests/unit/test_mininet_control_paths.py
 
 net-test:
 	docker compose up -d
-	$(NET_EXEC) bash -c "cd /workspace && python3 -m pytest $(NET_UNIT) tests/integration -v -p no:cacheprovider"
+	$(NET_EXEC) bash -c "cd /workspace && PYTHONPATH=/workspace/network/src python3 -m pytest $(NET_UNIT) tests/integration -v -p no:cacheprovider"

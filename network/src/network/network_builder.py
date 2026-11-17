@@ -5,6 +5,8 @@ from __future__ import annotations
 import os
 from typing import Optional
 
+import yaml
+from mininet.link import TCLink
 from mininet.net import Mininet
 from mininet.node import RemoteController
 
@@ -16,6 +18,16 @@ DEFAULT_CONFIG_PATH = "config/enterprise.yaml"
 
 CONTROLLER_IP_ENV = "RYU_CONTROLLER_IP"
 CONTROLLER_PORT_ENV = "RYU_CONTROLLER_PORT"
+
+
+def load_identity_macs(path: str) -> dict:
+    """Host/server MAC addresses from identities.yaml (Zero Trust expects
+    devices to present these). Missing file -> Mininet picks MACs."""
+    if not os.path.isfile(path):
+        return {}
+    with open(path) as fh:
+        data = yaml.safe_load(fh) or {}
+    return {name: d["mac"] for name, d in (data.get("devices") or {}).items() if d.get("mac")}
 
 
 class NetworkBuilder:
@@ -38,10 +50,13 @@ class NetworkBuilder:
             controller_port or os.environ.get(CONTROLLER_PORT_ENV, "6653")
         )
         self.net: Optional[Mininet] = None
+        self.macs = load_identity_macs(
+            os.path.join(os.path.dirname(config_path or DEFAULT_CONFIG_PATH), "identities.yaml")
+        )
 
     def build(self) -> Mininet:
         """Create (but do not start) the Mininet network."""
-        topo = EnterpriseTopology(self.config)
+        topo = EnterpriseTopology(self.config, macs=self.macs)
         # controller=None + addController keeps this compatible across
         # Mininet versions (newer releases dropped **params on Mininet()).
         self.net = Mininet(
@@ -49,6 +64,7 @@ class NetworkBuilder:
             controller=None,
             host=devices.Host,
             switch=devices.Switch,
+            link=TCLink,  # lets the controller add latency/loss/bandwidth limits
         )
         self.net.addController(
             "ryu",
