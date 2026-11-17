@@ -95,6 +95,7 @@ class SelfHealingApp(app_manager.RyuApp):
         self.zt = L.ZtTable()
         self.flowlog = L.FlowLog()
         self._pending = {}        # microflow key -> (flow id, time): dedupe packet-ins
+        self.connections = L.Connections()
         self.probes = L.ProbeBook(window_s=PROBE_WINDOW, timeout_s=1.0)
         self.ctrl_rtt = {}        # dpid -> controller<->switch round trip (s)
         self._seq = 0
@@ -315,9 +316,14 @@ class SelfHealingApp(app_manager.RyuApp):
             host = self.state.topo.host_by_mac.get(eth.src)
             if host:
                 self._install_destination(host["ip"])
-        l4 = pkt.get_protocol(tcp.tcp) or pkt.get_protocol(udp.udp)
+        t = pkt.get_protocol(tcp.tcp)
+        l4 = t or pkt.get_protocol(udp.udp)
         dst_port = l4.dst_port if l4 is not None else None
-        match = L.microflow_match(in_port, eth.src, ip.src, ip.dst, ip.proto, dst_port)
+        src_port = l4.src_port if l4 is not None else None
+        new_tcp = t is not None and bool(t.bits & tcp.TCP_SYN) and not (t.bits & tcp.TCP_ACK)
+        reply = self.connections.is_reply(ip.src, ip.dst, ip.proto, src_port, new_tcp)
+        match = L.microflow_match(in_port, eth.src, ip.src, ip.dst, ip.proto, dst_port,
+                                  src_port if reply else None)
         key = (dp.id, tuple(sorted(match.items())))
         now = time.time()
         pending = self._pending.get(key)
@@ -325,11 +331,18 @@ class SelfHealingApp(app_manager.RyuApp):
             flow = self.flowlog.flows.get(pending[0])
         else:
             claims = L.flow_claims(self.state.topo, dp.id, in_port, eth.src, ip.src, ip.dst, dst_port)
-            allowed, reason = self.zt.admit(claims)
+            if reply:
+                allowed, reason = self.zt.admit(dict(claims, port=None))  # identity + quarantine only
+                reason = "reply to an allowed connection; " + reason
+            else:
+                allowed, reason = self.zt.admit(claims)
+                if allowed:
+                    self.connections.allow(ip.src, ip.dst, ip.proto, dst_port)
             flow = self.flowlog.add(now, switch=self.state.topo.name_of.get(dp.id), in_port=in_port,
                                     src=claims["src"], src_ip=ip.src, src_mac=claims["src_mac"],
-                                    dst=claims["dst"], dst_ip=ip.dst, proto=ip.proto, dst_port=dst_port,
-                                    allowed=allowed, reason=reason, bytes=len(msg.data))
+                                    dst=claims["dst"], dst_ip=ip.dst, proto=ip.proto,
+                                    dst_port=None if reply else dst_port, src_port=src_port if reply else None,
+                                    reply=reply, allowed=allowed, reason=reason, bytes=len(msg.data))
             self._pending[key] = (flow["id"], now)
             self._install({"dpid": dp.id, "table": L.ACL_TABLE, "priority": L.PRIO_MICROFLOW, "match": match,
                            "cookie": L.COOKIE_WATCH + flow["id"], "actions": [],
@@ -345,6 +358,7 @@ class SelfHealingApp(app_manager.RyuApp):
             for dp in list(self.datapaths.values()):
                 self._delete(dp, L.ACL_TABLE, L.COOKIE_WATCH, L.COOKIE_WATCH_MASK)
             self._pending.clear()
+            self.connections.clear()
         return {"enabled": self.zt.enabled, "version": self.zt.version, "changed": changed,
                 "rules": len(self.zt.rules)}
 

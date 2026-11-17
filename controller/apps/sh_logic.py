@@ -467,14 +467,40 @@ def flow_claims(topo: "Topology", dpid: int, in_port: int, src_mac: str, src_ip:
 
 
 def microflow_match(in_port: int, src_mac: str, src_ip: str, dst_ip: str, proto: int,
-                    dst_port: Optional[int]) -> dict:
+                    dst_port: Optional[int], src_port: Optional[int] = None) -> dict:
+    """Request flows match the service (destination) port; replies match the
+    service as their *source* port, so one rule covers every connection."""
     match = {"in_port": in_port, "eth_src": src_mac, "eth_type": IPV4, "ipv4_src": src_ip,
              "ipv4_dst": dst_ip, "ip_proto": proto}
-    if proto == 6 and dst_port is not None:
-        match["tcp_dst"] = dst_port
-    elif proto == 17 and dst_port is not None:
-        match["udp_dst"] = dst_port
+    field = {6: "tcp", 17: "udp"}.get(proto)
+    if field and src_port is not None:
+        match[f"{field}_src"] = src_port
+    elif field and dst_port is not None:
+        match[f"{field}_dst"] = dst_port
     return match
+
+
+class Connections:
+    """Allowed request flows, so replies can be recognised (stateful firewall).
+
+    A packet is a reply if it is not a new TCP connection (SYN without ACK)
+    and an allowed request flow exists in the opposite direction to the
+    port it comes from."""
+
+    def __init__(self):
+        self.allowed: set = set()
+
+    def allow(self, src_ip: str, dst_ip: str, proto: int, dst_port: Optional[int]) -> None:
+        if dst_port is not None:
+            self.allowed.add((src_ip, dst_ip, proto, dst_port))
+
+    def is_reply(self, src_ip: str, dst_ip: str, proto: int, src_port: Optional[int], new_tcp: bool) -> bool:
+        if src_port is None or (proto == 6 and new_tcp):
+            return False
+        return (dst_ip, src_ip, proto, src_port) in self.allowed
+
+    def clear(self) -> None:
+        self.allowed.clear()
 
 
 class FlowLog:

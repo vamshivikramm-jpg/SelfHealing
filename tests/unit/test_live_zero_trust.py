@@ -191,3 +191,23 @@ def test_spoofed_syn_is_a_valid_frame():
     tcp = frame[34:]
     pseudo = ip[12:20] + struct.pack("!BBH", 0, 6, len(tcp))
     assert _checksum(pseudo + tcp) == 0 and struct.unpack("!H", tcp[2:4])[0] == 22 and tcp[13] == 0x02
+
+
+def test_replies_recognised_only_for_allowed_connections():
+    conns = L.Connections()
+    conns.allow("10.0.1.11", "10.0.1.20", 6, 443)
+    assert conns.is_reply("10.0.1.20", "10.0.1.11", 6, 443, new_tcp=False)
+    assert not conns.is_reply("10.0.1.20", "10.0.1.11", 6, 443, new_tcp=True)   # a new connection
+    assert not conns.is_reply("10.0.1.20", "10.0.1.12", 6, 443, new_tcp=False)  # never asked
+    assert not conns.is_reply("10.0.1.20", "10.0.1.11", 6, None, new_tcp=False)
+    m = L.microflow_match(5, "a", "10.0.1.20", "10.0.1.11", 6, 51234, src_port=443)
+    assert m["tcp_src"] == 443 and "tcp_dst" not in m
+
+
+def test_feed_skips_replies(world):
+    _, registry, _, _ = world
+    client = FakeClient()
+    feed = LiveSecurityFeed(client, registry, {})
+    client.flows = [{"id": 1, "src": "srv-web-1", "src_ip": "10.0.1.20", "src_mac": "x", "dst": "h2",
+                     "dst_port": None, "src_port": 443, "reply": True, "proto": 6, "packets": 9, "bytes": 900}]
+    assert feed.step(1.0) == ([], []) and feed.skipped == 1

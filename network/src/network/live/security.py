@@ -10,8 +10,9 @@
   network: one ``FlowRecord`` per flow that sent packets since the last step
   (``GET /sh/flows``: which device is wired to the ingress port, the
   addresses the packets claimed, real packet/byte counts), and one
-  ``AuthEvent`` per login attempt logged by the servers. ICMP (monitoring
-  pings) and traffic to non-devices are not access requests and are left out.
+  ``AuthEvent`` per login attempt logged by the servers. Replies to allowed
+  connections, ICMP (monitoring pings) and traffic to non-devices are not
+  access requests and are left out.
 * :class:`LiveTraffic` — starts the services, the normal users and attacks
   inside the Mininet hosts (``network.live.hostapps``).
 
@@ -104,7 +105,7 @@ class LiveSecurityFeed:
             self._max_id = max(self._max_id, fid)
             if previous is not None and delta <= 0:
                 continue
-            if f.get("dst_port") is None or self.registry.get(f.get("dst")) is None:
+            if f.get("reply") or f.get("dst_port") is None or self.registry.get(f.get("dst")) is None:
                 self.skipped += 1
                 continue
             packets = max(1, delta)
