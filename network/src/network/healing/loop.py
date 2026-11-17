@@ -8,6 +8,11 @@ After every telemetry collection of a :class:`ScenarioRunner`:
 This is the research document's Algorithm 1 running end to end in
 simulation. ``heal=False`` keeps detection and decisions but executes
 nothing (the "detect and alert" baseline).
+
+The live lab passes its own back-ends: ``service`` (a built
+:class:`ServiceModel`), and ``executor_factory(loop)`` /
+``verifier_factory(loop)`` called once the Zero Trust engine exists
+(see :mod:`network.live`). The defaults are the simulated ones.
 """
 
 from __future__ import annotations
@@ -22,14 +27,17 @@ from network.healing.verify import Verifier
 
 class ClosedLoop(IntelligenceLoop):
     def __init__(self, runner, registry, zt_policy, decision_policy, topology, security_plan, predictor=None,
-                 healing_policy: HealingPolicy = HealingPolicy(), heal: bool = True):
-        self.service = ServiceModel(NetworkGraph.from_topology(topology), lambda: runner.builder.net,
-                                    runner.collector.store)
+                 healing_policy: HealingPolicy = HealingPolicy(), heal: bool = True,
+                 service=None, executor_factory=None, verifier_factory=None):
+        self.service = service or ServiceModel(NetworkGraph.from_topology(topology), lambda: runner.builder.net,
+                                               runner.collector.store)
         super().__init__(runner, registry, zt_policy, decision_policy, topology, security_plan, predictor)
         self.healing = None
         if heal:
-            executor = SimulatedExecutor(runner.controller, runner.manager, self.service, self.security)
-            verifier = Verifier(runner.collector, self.service, self.security)
+            executor = (executor_factory(self) if executor_factory else
+                        SimulatedExecutor(runner.controller, runner.manager, self.service, self.security))
+            verifier = (verifier_factory(self) if verifier_factory else
+                        Verifier(runner.collector, self.service, self.security))
             self.healing = HealingEngine(self.decisions, executor, verifier, healing_policy)
 
     def on_collection(self, result) -> None:

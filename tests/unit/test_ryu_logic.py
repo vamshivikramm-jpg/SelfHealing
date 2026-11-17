@@ -172,3 +172,47 @@ def test_covers_guards_resubmission():
     assert L.covers(rules, RTR, "anything")
     assert L.covers(rules, SWB, "02:fe:0a:00:01:01")  # sent to subnet-a's gateway
     assert not L.covers(rules, 0x99, "02:00:00:00:00:99")  # unknown switch
+
+
+def test_probe_mac_round_trip():
+    assert L.probe_mac(70000) == "02:fd:00:01:11:70"
+    assert L.probe_seq(L.probe_mac(70000)) == 70000
+    assert L.probe_seq("02:00:0a:00:01:0a") is None
+
+
+def test_monitor_ip_is_free_and_access_links_known():
+    st = _state()
+    assert st.topo.monitor_ip("subnet-a") == "10.0.1.254"
+    assert (SWB, "h4") in st.topo.access and len(st.topo.access) == 7
+
+
+def test_probe_book_loss_and_latency():
+    book = L.ProbeBook(window_s=5.0, timeout_s=1.0)
+    key = ("rtr-core-sw-a", "1>17")
+    for seq in range(10):
+        book.sent(key, seq, 100.0 + seq * 0.2)
+        if seq % 2 == 0:
+            assert book.received(key, seq, 100.0 + seq * 0.2 + 0.05, 50.0 + seq)
+    s = book.summary([key], now=103.0)
+    assert s["probes"] == 10 and s["loss_pct"] == 50.0 and s["latency_ms"] == 54.0
+    # undecided probes (younger than the timeout) are not counted
+    book.sent(key, 99, 102.5)
+    assert book.summary([key], now=103.0)["probes"] == 10
+
+
+def test_probe_book_rejects_late_duplicate_and_unknown():
+    book = L.ProbeBook(timeout_s=1.0)
+    book.sent(("l", "rt"), 1, 10.0)
+    assert not book.received(("l", "rt"), 1, 11.5, 5.0)   # too late
+    assert not book.received(("l", "rt"), 2, 10.1, 5.0)   # never sent
+    book.sent(("l", "rt"), 3, 10.0)
+    assert book.received(("l", "rt"), 3, 10.1, -2.0)
+    assert not book.received(("l", "rt"), 3, 10.2, 5.0)  # duplicate
+    assert book.summary([("l", "rt")], 12.0)["latency_ms"] == 0.0  # clamped
+
+
+def test_probe_book_prunes_old_probes():
+    book = L.ProbeBook(window_s=5.0, timeout_s=1.0)
+    book.sent(("l", "rt"), 1, 0.0)
+    book.prune(100.0)
+    assert book.summary([("l", "rt")], 3.0)["probes"] == 0

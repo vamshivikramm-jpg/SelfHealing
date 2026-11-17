@@ -194,3 +194,15 @@ def test_identity_macs_assigned_to_hosts():
     topo = EnterpriseTopology(load_topology_config(CONFIG), macs=macs)
     assert topo.nodeInfo("h1")["mac"] == "02:00:0a:00:01:0a"
     assert "mac" not in topo.nodeInfo("sw-a")
+
+
+def test_impairment_change_keeps_physical_fault(ctrl):
+    class Faults:
+        def link_physically_up(self, a, b):
+            return {a, b} != {"sw-a", "h1"}
+
+    ctrl.physical_faults = Faults()
+    ctrl.set_link_latency("sw-a", "h1", 30)
+    (link,) = ctrl._net.linksBetween(ctrl._net.get("sw-a"), ctrl._net.get("h1"))
+    assert link.intf1.configs == []
+    assert link.intf1.tc_cmds[-1] == "%s qdisc replace dev %s root netem loss 100%%"

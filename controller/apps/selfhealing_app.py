@@ -15,6 +15,13 @@ and serves the REST API on ``--wsapi-port`` (default 8080):
   DELETE /sh/blocks/{id}               remove a block
   GET    /sh/stats/ports               latest port counters (polled every STATS_INTERVAL s)
   GET    /sh/stats/flows               latest flow counters
+  GET    /sh/stats/links               measured per-link latency/loss (active probes)
+
+Link measurement: every SH_PROBE_INTERVAL s the controller sends a probe
+frame across each switch-to-switch link in both directions and an ARP probe
+to every located host. One-way latency = arrival - departure - half the
+controller<->switch round trip of each switch (OpenFlow echo); a probe with
+no answer within 1 s is lost. Results cover the last SH_PROBE_WINDOW s.
 
 Tables: 0 = access control (blocks; default: go to table 1),
 1 = forwarding (ARP -> controller, per-destination IPv4 rules, miss ->
@@ -43,6 +50,8 @@ APP_KEY = "selfhealing_app"
 CONFIG_DIR = os.environ.get("SH_CONFIG_DIR", "/opt/controller/config")
 TOPOLOGY_FILE = os.environ.get("SH_TOPOLOGY", "enterprise.yaml")
 STATS_INTERVAL = float(os.environ.get("SH_STATS_INTERVAL", "2"))
+PROBE_INTERVAL = float(os.environ.get("SH_PROBE_INTERVAL", "0.2"))
+PROBE_WINDOW = float(os.environ.get("SH_PROBE_WINDOW", "5"))
 FLOW_IDLE_TIMEOUT = 0  # rules are removed explicitly when paths change
 
 
@@ -73,7 +82,11 @@ class SelfHealingApp(app_manager.RyuApp):
         self.installed = set()    # destination IPs with rules installed
         self.started = time.time()
         kwargs["wsgi"].register(RestApi, {APP_KEY: self})
+        self.probes = L.ProbeBook(window_s=PROBE_WINDOW, timeout_s=1.0)
+        self.ctrl_rtt = {}        # dpid -> controller<->switch round trip (s)
+        self._seq = 0
         self._monitor = hub.spawn(self._poll_stats)
+        self._prober = hub.spawn(self._probe_loop)
         self.logger.info("selfhealing: topology %s (%d switches, %d hosts)",
                          self.topology_file, len(topo.dpid_of), len(topo.hosts))
 
@@ -144,6 +157,11 @@ class SelfHealingApp(app_manager.RyuApp):
         self._install(dict(base, table=L.FWD_TABLE, priority=0, match={}, actions=[("controller",)]))
         self._install(dict(base, table=L.FWD_TABLE, priority=L.PRIO_ARP, match={"eth_type": L.ARP},
                            actions=[("controller",)]))
+        # replies to our ARP probes skip blocks: a blocked host's link is still measured
+        self._install(dict(base, table=L.ACL_TABLE, priority=L.PRIO_BLOCK + 1000, goto=L.FWD_TABLE,
+                           match={"eth_type": L.ARP, "eth_dst": (L.probe_mac(0), "ff:ff:00:00:00:00")}))
+        self._install(dict(base, table=L.FWD_TABLE, priority=L.PRIO_PROBE,
+                           match={"eth_type": L.PROBE_ETHERTYPE}, actions=[("controller",)]))
         for ethertype in (0x86DD, 0x88CC):  # IPv6, LLDP: not used, never to the controller
             self._install(dict(base, table=L.FWD_TABLE, priority=10, match={"eth_type": ethertype}))
         dp.send_msg(parser.OFPPortDescStatsRequest(dp, 0))
@@ -230,6 +248,9 @@ class SelfHealingApp(app_manager.RyuApp):
         eth = pkt.get_protocol(ethernet.ethernet)
         if eth is None:
             return
+        if eth.ethertype == L.PROBE_ETHERTYPE:
+            self._trunk_probe_in(dp, msg.data)
+            return
         if self.state.learn(eth.src, dp.id, in_port):
             host = self.state.topo.host_by_mac.get(eth.src)
             if host:
@@ -262,6 +283,9 @@ class SelfHealingApp(app_manager.RyuApp):
             self._packet_out(dp, dp.ofproto.OFPP_TABLE, msg.data, in_port=in_port)
 
     def _handle_arp(self, dp, in_port, eth, a):
+        if a.opcode == arp.ARP_REPLY and a.dst_mac.startswith(L.PROBE_MAC_PREFIX):
+            self._access_probe_in(dp, a)
+            return
         if a.opcode != arp.ARP_REQUEST:
             return  # replies to our probes only teach locations (done above)
         mac = self.state.arp_answer(a.dst_ip)
@@ -303,6 +327,118 @@ class SelfHealingApp(app_manager.RyuApp):
         self.logger.warning("switch %s rejected a message: type=%s code=%s data=%s",
                             self.state.topo.name_of.get(msg.datapath.id, hex(msg.datapath.id)),
                             msg.type, msg.code, msg.data[:64].hex() if msg.data else "")
+
+    # ------------------------------------------------------------------
+    # Link probes
+    # ------------------------------------------------------------------
+    def _next_seq(self):
+        self._seq = (self._seq + 1) & 0xFFFFFFFF
+        return self._seq
+
+    def _rtt(self, dpid):
+        return self.ctrl_rtt.get(dpid, 0.0)
+
+    def _probe_loop(self):
+        rounds = 0
+        while True:
+            try:
+                now = time.time()
+                if rounds % 5 == 0:
+                    for dp in list(self.datapaths.values()):
+                        dp.send_msg(dp.ofproto_parser.OFPEchoRequest(dp, data=repr(time.time()).encode()))
+                    self.probes.prune(now)
+                topo = self.state.topo
+                for a, pa, b, pb in topo.links:
+                    name = L.link_name(topo.name_of[a], topo.name_of[b])
+                    for src, port, dst in ((a, pa, b), (b, pb, a)):
+                        dp = self.datapaths.get(src)
+                        if dp is None:
+                            continue
+                        seq = self._next_seq()
+                        body = json.dumps({"seq": seq, "link": name, "src": src}).encode()
+                        frame = packet.Packet()
+                        frame.add_protocol(ethernet.ethernet(ethertype=L.PROBE_ETHERTYPE,
+                                                             dst="02:fd:ff:ff:ff:ff", src=L.probe_mac(0)))
+                        frame.add_protocol(body)
+                        frame.serialize()
+                        self.probes.sent((name, f"{src}>{dst}"), seq, time.time())
+                        self._packet_out(dp, port, frame.data)
+                for dpid, host_name in topo.access:
+                    host = topo.hosts[host_name]
+                    loc = self.state.host_loc.get(host["mac"])
+                    dp = self.datapaths.get(dpid)
+                    monitor = topo.monitor_ip(host["subnet"])
+                    if loc is None or loc[0] != dpid or dp is None or monitor is None:
+                        continue
+                    seq = self._next_seq()
+                    req = packet.Packet()
+                    req.add_protocol(ethernet.ethernet(ethertype=L.ARP, dst=host["mac"], src=L.probe_mac(seq)))
+                    req.add_protocol(arp.arp(opcode=arp.ARP_REQUEST, src_mac=L.probe_mac(seq), src_ip=monitor,
+                                             dst_mac="00:00:00:00:00:00", dst_ip=host["ip"]))
+                    req.serialize()
+                    self.probes.sent((L.link_name(topo.name_of[dpid], host_name), "rt"), seq, time.time())
+                    self._packet_out(dp, loc[1], req.data)
+            except Exception:  # noqa: BLE001 - never let the prober die
+                self.logger.exception("probe round failed")
+            rounds += 1
+            hub.sleep(PROBE_INTERVAL)
+
+    @set_ev_cls(ofp_event.EventOFPEchoReply, MAIN_DISPATCHER)
+    def _echo_reply(self, ev):
+        try:
+            sent = float(ev.msg.data.decode())
+        except (ValueError, AttributeError):
+            return
+        rtt = max(0.0, time.time() - sent)
+        old = self.ctrl_rtt.get(ev.msg.datapath.id)
+        self.ctrl_rtt[ev.msg.datapath.id] = rtt if old is None else 0.7 * old + 0.3 * rtt
+
+    def _trunk_probe_in(self, dp, data):
+        now = time.time()
+        try:
+            body = json.loads(bytes(data[14:]).decode())
+            seq, name, src = int(body["seq"]), body["link"], int(body["src"])
+        except (ValueError, KeyError, TypeError):
+            return
+        key = (name, f"{src}>{dp.id}")
+        sent = self.probes.sent_at(key, seq)
+        if sent is not None:
+            one_way = (now - sent - self._rtt(src) / 2 - self._rtt(dp.id) / 2) * 1000.0
+            self.probes.received(key, seq, now, one_way)
+
+    def _access_probe_in(self, dp, a):
+        now = time.time()
+        seq = L.probe_seq(a.dst_mac)
+        host = self.state.topo.host_by_ip.get(a.src_ip)
+        if seq is None or host is None:
+            return
+        key = (L.link_name(self.state.topo.name_of.get(dp.id, ""), host["name"]), "rt")
+        sent = self.probes.sent_at(key, seq)
+        if sent is not None:
+            self.probes.received(key, seq, now, (now - sent - self._rtt(dp.id)) / 2 * 1000.0)
+
+    def link_measurements(self):
+        st, topo = self.state, self.state.topo
+        now = time.time()
+        out = {}
+        for a, pa, b, pb in topo.links:
+            name = L.link_name(topo.name_of[a], topo.name_of[b])
+            row = self.probes.summary([(name, f"{a}>{b}"), (name, f"{b}>{a}")], now)
+            row.update(src=topo.name_of[a], dst=topo.name_of[b], kind="trunk",
+                       carrier=st.link_live(a, pa, b, pb))
+            out[name] = row
+        for dpid, host_name in topo.access:
+            name = L.link_name(topo.name_of[dpid], host_name)
+            loc = st.host_loc.get(topo.hosts[host_name]["mac"])
+            carrier = (dpid in st.connected and loc is not None and loc[0] == dpid
+                       and (dpid, loc[1]) not in st.port_down)
+            row = self.probes.summary([(name, "rt")], now)
+            row.update(src=topo.name_of[dpid], dst=host_name, kind="access", carrier=carrier,
+                       located=loc is not None)
+            out[name] = row
+        return {"time": now, "window_s": self.probes.window_s, "links": out,
+                "controller_rtt_ms": {topo.name_of.get(d, hex(d)): round(r * 1000, 3)
+                                      for d, r in self.ctrl_rtt.items()}}
 
     # ------------------------------------------------------------------
     # Statistics
@@ -486,6 +622,10 @@ class RestApi(ControllerBase):
     @route("sh", "/sh/stats/ports", methods=["GET"])
     def port_stats(self, req, **_):
         return _json(self.app.port_stats)
+
+    @route("sh", "/sh/stats/links", methods=["GET"])
+    def link_stats(self, req, **_):
+        return _json(self.app.link_measurements())
 
     @route("sh", "/sh/stats/flows", methods=["GET"])
     def flow_stats(self, req, **_):

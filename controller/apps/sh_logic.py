@@ -26,11 +26,14 @@ Forwarding model (one distributed router):
 from __future__ import annotations
 
 import ipaddress
+import statistics
 from collections import deque
 from typing import Dict, Iterable, List, Optional, Tuple
 
 ARP = 0x0806
 IPV4 = 0x0800
+PROBE_ETHERTYPE = 0x88B5      # IEEE "local experimental": controller link probes
+PROBE_MAC_PREFIX = "02:fd:"   # source MAC of probes; ARP probe sequence lives in it
 
 # table 0 = access control (blocks), table 1 = forwarding
 ACL_TABLE = 0
@@ -40,6 +43,7 @@ PRIO_EGRESS = 120          # last switch, packet already addressed to the host
 PRIO_EGRESS_ROUTED = 110   # last switch, packet addressed to a gateway: rewrite MACs
 PRIO_TRANSIT = 100
 PRIO_ARP = 200
+PRIO_PROBE = 300
 COOKIE_BASE = 0x5000          # table-miss / ARP / drop rules
 COOKIE_FWD = 0x5100           # per-destination forwarding rules
 COOKIE_BLOCK = 0x5B000000     # + block id
@@ -105,6 +109,12 @@ class Topology:
             ports[dst] = ports.get(dst, 0) + 1
             if src in self.dpid_of and dst in self.dpid_of:
                 self.links.append((self.dpid_of[src], int(sport), self.dpid_of[dst], int(dport)))
+        # switch <-> host links: (switch dpid, host name)
+        self.access: List[Tuple[int, str]] = []
+        for link in topo.get("links") or []:
+            for sw, other in ((link["src"], link["dst"]), (link["dst"], link["src"])):
+                if sw in self.dpid_of and other in self.hosts:
+                    self.access.append((self.dpid_of[sw], other))
         self.trunk_ports: Dict[int, set] = {d: set() for d in self.name_of}
         self.peer: Dict[Tuple[int, int], Tuple[int, int]] = {}
         for a, pa, b, pb in self.links:
@@ -126,6 +136,77 @@ class Topology:
 
     def is_trunk(self, dpid: int, port: int) -> bool:
         return port in self.trunk_ports.get(dpid, ())
+
+    def monitor_ip(self, subnet_id: str) -> Optional[str]:
+        """An unused address in the subnet that ARP probes come from (the
+        highest free one), so probes never touch a host's gateway entry."""
+        sn = self.subnets.get(subnet_id)
+        if sn is None:
+            return None
+        used = set(self.host_by_ip) | set(self.gateways)
+        for addr in reversed(list(sn["network"].hosts())[-16:]):
+            if str(addr) not in used:
+                return str(addr)
+        return None
+
+
+def link_name(a: str, b: str) -> str:
+    """Canonical link name, as NetworkController/NetworkState use."""
+    return "-".join(sorted((a, b)))
+
+
+def probe_mac(seq: int) -> str:
+    seq &= 0xFFFFFFFF
+    return PROBE_MAC_PREFIX + ":".join(f"{(seq >> s) & 0xFF:02x}" for s in (24, 16, 8, 0))
+
+
+def probe_seq(mac: str) -> Optional[int]:
+    if not mac.startswith(PROBE_MAC_PREFIX):
+        return None
+    return int(mac[len(PROBE_MAC_PREFIX):].replace(":", ""), 16)
+
+
+class ProbeBook:
+    """Sent/received probes per (link, direction) and their summaries.
+
+    A probe counts as lost if no answer arrived within ``timeout_s``.
+    Summaries use probes sent in the last ``window_s`` seconds that are
+    already decided (older than the timeout).
+    """
+
+    def __init__(self, window_s: float = 5.0, timeout_s: float = 1.0):
+        self.window_s = window_s
+        self.timeout_s = timeout_s
+        self._probes: Dict[tuple, Dict[int, list]] = {}  # key -> seq -> [t_sent, one_way_ms|None]
+
+    def sent(self, key: tuple, seq: int, t: float) -> None:
+        self._probes.setdefault(key, {})[seq] = [t, None]
+
+    def sent_at(self, key: tuple, seq: int) -> Optional[float]:
+        entry = self._probes.get(key, {}).get(seq)
+        return entry[0] if entry else None
+
+    def received(self, key: tuple, seq: int, now: float, one_way_ms: float) -> bool:
+        entry = self._probes.get(key, {}).get(seq)
+        if entry is None or now - entry[0] > self.timeout_s or entry[1] is not None:
+            return False
+        entry[1] = max(0.0, one_way_ms)
+        return True
+
+    def prune(self, now: float) -> None:
+        horizon = now - self.window_s - self.timeout_s - 1.0
+        for probes in self._probes.values():
+            for seq in [s for s, e in probes.items() if e[0] < horizon]:
+                del probes[seq]
+
+    def summary(self, keys: Iterable[tuple], now: float) -> dict:
+        decided = [e for k in keys for e in self._probes.get(k, {}).values()
+                   if now - self.window_s - self.timeout_s <= e[0] <= now - self.timeout_s]
+        got = [e[1] for e in decided if e[1] is not None]
+        sent = len(decided)
+        return {"probes": sent,
+                "loss_pct": None if not sent else round(100.0 * (sent - len(got)) / sent, 2),
+                "latency_ms": round(statistics.median(got), 3) if got else None}
 
 
 class ForwardingState:

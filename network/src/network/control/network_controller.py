@@ -390,8 +390,13 @@ class NetworkController:
             tc_params["loss"] = params["loss_percent"]
         if params.get("bandwidth_mbps") is not None:
             tc_params["bw"] = params["bandwidth_mbps"]
+        faults = getattr(self, "physical_faults", None)  # network.live.LiveFaults, if attached
+        broken = faults is not None and not faults.link_physically_up(node1, node2)
         for link in links_between(self._net.get(node1), self._net.get(node2)):
             for intf in (link.intf1, link.intf2):
+                if broken:  # a physical fault outranks configured impairments
+                    intf.tc("%s qdisc replace dev %s root netem loss 100%%")
+                    continue
                 # Start from a clean root qdisc so cleared settings vanish
                 # (TCIntf.config does nothing when called without params).
                 intf.tc("%s qdisc del dev %s root")
