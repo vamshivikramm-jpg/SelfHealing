@@ -3,152 +3,211 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="dark">
   <title>Self-Healing Network Dashboard</title>
-  <link rel="stylesheet" href="/static/css/dashboard.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%236d7cff'/%3E%3Cpath d='M9 17l4 4 10-11' stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/static/css/dashboard.css?v=2.4">
   <script src="https://unpkg.com/cytoscape@3.28.1/dist/cytoscape.min.js"></script>
 </head>
 <body>
+<a class="skip-link" href="#main">Skip to content</a>
+<div class="app" id="app">
 
-<header id="topbar">
-  <div class="topbar-left">
-    <span class="project-name">Self-Healing Enterprise Network</span>
-    <span class="badge" id="modeBadge">—</span>
-  </div>
-  <div class="topbar-center" id="healthPills"></div>
-  <div class="topbar-right">
-    <span id="autonomyBadge" class="muted"></span>
-    <span id="clock"></span>
-  </div>
-</header>
+  <!-- ── Sidebar ─────────────────────────────────────────────────────── -->
+  <aside class="sidebar" id="sidebar" aria-label="Main navigation">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M12 2l8 4v6c0 5-3.4 8.6-8 10-4.6-1.4-8-5-8-10V6l8-4z"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></svg>
+      </div>
+      <div class="brand-text"><b>Self-Healing</b><span>Zero Trust Network</span></div>
+    </div>
+    <nav id="tabs" role="tablist" aria-orientation="vertical">
+      <button class="tab active" data-tab="overview" role="tab" aria-selected="true" data-icon="grid"><span class="tab-label">Overview</span></button>
+      <button class="tab" data-tab="telemetry" role="tab" aria-selected="false" data-icon="activity"><span class="tab-label">Telemetry</span></button>
+      <button class="tab" data-tab="prediction" role="tab" aria-selected="false" data-icon="sparkles"><span class="tab-label">Predictions</span><span class="count predict" id="predCount" hidden></span></button>
+      <button class="tab" data-tab="security" role="tab" aria-selected="false" data-icon="shield"><span class="tab-label">Zero Trust</span><span class="count bad" id="quarCount" hidden></span></button>
+      <button class="tab" data-tab="healing" role="tab" aria-selected="false" data-icon="wrench"><span class="tab-label">Decisions &amp; Healing</span><span class="count" id="pendingCount" hidden></span></button>
+      <button class="tab" data-tab="timeline" role="tab" aria-selected="false" data-icon="list"><span class="tab-label">Timeline</span></button>
+      <button class="tab" data-tab="analytics" role="tab" aria-selected="false" data-icon="chart"><span class="tab-label">Analytics</span></button>
+      <div class="nav-sep control-only" hidden></div>
+      <button class="tab control-only" data-tab="control" role="tab" aria-selected="false" data-icon="sliders" hidden><span class="tab-label">Control</span></button>
+    </nav>
+    <div class="sidebar-foot">
+      <div class="env-card" id="envCard">
+        <span class="env-dot" id="envDot"></span>
+        <div><b id="envTitle">Connecting…</b><span id="envSub">waiting for the API</span></div>
+      </div>
+      <button class="collapse-btn" id="collapseBtn" aria-label="Collapse sidebar" title="Collapse sidebar" data-icon="chevrons-left"></button>
+    </div>
+  </aside>
+  <div class="scrim" id="scrim" hidden></div>
 
-<div id="banner" class="banner" hidden></div>
-
-<nav id="tabs" role="tablist">
-  <button class="tab active" data-tab="overview" role="tab">Overview</button>
-  <button class="tab" data-tab="telemetry" role="tab">Telemetry</button>
-  <button class="tab" data-tab="prediction" role="tab">Predictions</button>
-  <button class="tab" data-tab="security" role="tab">Zero Trust</button>
-  <button class="tab" data-tab="healing" role="tab">Decisions &amp; Healing <span class="count" id="pendingCount" hidden></span></button>
-  <button class="tab" data-tab="timeline" role="tab">Timeline</button>
-  <button class="tab" data-tab="analytics" role="tab">Analytics</button>
-  <button class="tab control-only" data-tab="control" role="tab" hidden>Control</button>
-</nav>
-
-<main>
-  <!-- Overview -->
-  <section class="view active" id="view-overview">
-    <div class="overview-grid">
-      <div class="card topo-card">
-        <div class="card-head">
-          <h3>Live topology</h3>
-          <div class="legend">
-            <span><i class="dot ok"></i>healthy</span><span><i class="dot warn"></i>degraded</span>
-            <span><i class="dot bad"></i>down</span><span><i class="dot reroute"></i>rerouted traffic</span>
-            <span><i class="dot predict"></i>failure predicted</span>
+  <!-- ── Main column ─────────────────────────────────────────────────── -->
+  <div class="main-col">
+    <header id="topbar">
+      <button class="icon-btn menu-btn" id="menuBtn" aria-label="Open navigation" data-icon="menu"></button>
+      <div class="page-title">
+        <h1 id="pageTitle">Overview</h1>
+        <span class="badge" id="modeBadge">—</span>
+      </div>
+      <div class="topbar-center" id="healthPills" aria-live="polite"></div>
+      <div class="topbar-right">
+        <span class="autonomy" id="autonomyBadge"></span>
+        <span class="sync" id="sync" title="Last update"><i></i><span id="clock">--:--:--</span></span>
+        <div class="notif">
+          <button class="icon-btn" id="notifBtn" aria-label="Notifications" aria-haspopup="true" aria-expanded="false" data-icon="bell"></button>
+          <span class="notif-dot" id="notifDot" hidden></span>
+          <div class="dropdown" id="notifPanel" role="dialog" aria-label="Notifications" hidden>
+            <div class="dropdown-head"><b>Needs attention</b><span class="muted small" id="notifSub"></span></div>
+            <div id="notifList" class="dropdown-body"></div>
           </div>
         </div>
-        <div id="cy"></div>
       </div>
-      <div class="side">
+    </header>
+
+    <div id="banner" class="banner" hidden role="status"></div>
+
+    <main id="main">
+      <!-- Overview -->
+      <section class="view active" id="view-overview" role="tabpanel">
         <div class="kpis" id="kpis"></div>
-        <div class="card"><h3>Active decisions</h3><div id="ovDecisions" class="list"></div></div>
-        <div class="card"><h3>Latest events</h3><div id="ovEvents" class="list"></div></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Telemetry -->
-  <section class="view" id="view-telemetry">
-    <div class="toolbar">
-      <label>Target <select id="seriesTarget"></select></label>
-      <span class="muted" id="seriesNote"></span>
-    </div>
-    <div class="charts" id="charts"></div>
-  </section>
-
-  <!-- Predictions -->
-  <section class="view" id="view-prediction">
-    <div class="card"><h3>Failure prediction per link</h3><p class="muted" id="predInfo"></p>
-      <div id="predTable"></div></div>
-  </section>
-
-  <!-- Zero Trust -->
-  <section class="view" id="view-security">
-    <div class="two-col">
-      <div class="card"><h3>Device trust</h3><div id="trustBars"></div></div>
-      <div class="card"><h3>Threat index (Eq. 3)</h3><div id="threat"></div>
-        <h3 class="mt">Security events</h3><div id="secEvents" class="list tall"></div></div>
-    </div>
-  </section>
-
-  <!-- Decisions & healing -->
-  <section class="view" id="view-healing">
-    <div class="card" id="pendingCard"><h3>Waiting for approval</h3><div id="pending" class="list"></div></div>
-    <div class="two-col">
-      <div class="card"><h3>Active decisions</h3><div id="activeIntents"></div></div>
-      <div class="card"><h3>Self-healing</h3><div id="healStats" class="stats-row"></div><div id="healActions"></div></div>
-    </div>
-  </section>
-
-  <!-- Timeline -->
-  <section class="view" id="view-timeline">
-    <div class="toolbar" id="timelineFilters"></div>
-    <div class="card"><div id="timeline" class="list tall"></div></div>
-  </section>
-
-  <!-- Analytics -->
-  <section class="view" id="view-analytics">
-    <div class="toolbar"><label>Window <select id="anaWindow">
-      <option value="300">5 min</option><option value="900" selected>15 min</option>
-      <option value="3600">1 hour</option></select></label></div>
-    <div id="analytics"></div>
-  </section>
-
-  <!-- Control (simulation only) -->
-  <section class="view" id="view-control">
-    <p class="banner-inline">Controls act on the network this dashboard runs: the simulation, or the live lab's emulated network. A production network would stay read-only.</p>
-    <div class="three-col">
-      <form class="card" id="failForm">
-        <h3>Inject failure</h3>
-        <label>Kind <select name="kind">
-          <option value="link">Link down</option><option value="switch">Switch down</option>
-          <option value="router">Router down</option><option value="latency">High latency</option>
-          <option value="packet_loss">Packet loss</option><option value="bandwidth">Bandwidth limit</option>
-        </select></label>
-        <label>Target <select name="target"></select></label>
-        <label>Duration (s) <input name="duration_s" type="number" min="5" max="3600" value="60"></label>
-        <label>Warning ramp first (s) <input name="warning_s" type="number" min="0" max="600" value="0"></label>
-        <label class="check"><input name="physical" type="checkbox"> Physical damage (software cannot fix)</label>
-        <button type="submit">Inject</button>
-      </form>
-      <form class="card" id="attackForm">
-        <h3>Launch attack</h3>
-        <label>Kind <select name="kind">
-          <option value="port_scan">Port scan</option><option value="brute_force">Brute force</option>
-          <option value="spoofing">Identity spoofing</option><option value="lateral_movement">Lateral movement</option>
-          <option value="flood">Flood</option></select></label>
-        <label>Attacker <select name="attacker"></select></label>
-        <label>Duration (s) <input name="duration_s" type="number" min="5" max="3600" value="60"></label>
-        <p class="muted small">Detectors need ~40 s of normal traffic after start-up before flood/volume detection works.</p>
-        <button type="submit">Launch</button>
-      </form>
-      <div class="card">
-        <h3>Autonomy</h3>
-        <div class="segmented" id="autonomy">
-          <button data-level="L1">L1 approve all</button><button data-level="L2">L2 reversible auto</button>
-          <button data-level="L3">L3 full auto</button>
+        <div class="overview-grid">
+          <div class="card topo-card">
+            <div class="card-head">
+              <h3><span class="h-icon" data-icon="network"></span>Live topology</h3>
+              <div class="legend">
+                <span><i class="dot ok"></i>healthy</span><span><i class="dot warn"></i>degraded</span>
+                <span><i class="dot bad"></i>down</span><span><i class="dot reroute"></i>rerouted</span>
+                <span><i class="dot predict"></i>predicted</span>
+              </div>
+            </div>
+            <div id="cy" aria-label="Network topology map"></div>
+            <p class="topo-hint">Hover a device or link for details · click it for its charts</p>
+          </div>
+          <div class="side">
+            <div class="card"><div class="card-head"><h3><span class="h-icon" data-icon="target"></span>Active decisions</h3></div><div id="ovDecisions" class="list"></div></div>
+            <div class="card"><div class="card-head"><h3><span class="h-icon" data-icon="list"></span>Latest events</h3>
+              <button class="link-btn" data-goto="timeline">View all</button></div><div id="ovEvents" class="list"></div></div>
+          </div>
         </div>
-        <h3 class="mt">Scripted demo</h3>
-        <p class="muted small">Physical core-link cut, switch failure, predicted latency, flood and spoofing attacks over ~7 minutes.</p>
-        <button id="demoBtn">Run demo</button>
-        <div id="controlMsg" class="msg"></div>
-      </div>
-    </div>
-    <div class="card"><h3>Injected so far</h3><div id="injections"></div></div>
-  </section>
-</main>
+      </section>
 
+      <!-- Telemetry -->
+      <section class="view" id="view-telemetry" role="tabpanel">
+        <div class="toolbar">
+          <label class="field inline"><span>Target</span><select id="seriesTarget"></select></label>
+          <span class="muted small" id="seriesNote"></span>
+        </div>
+        <div class="charts" id="charts"></div>
+      </section>
+
+      <!-- Predictions -->
+      <section class="view" id="view-prediction" role="tabpanel">
+        <div class="card"><div class="card-head"><h3><span class="h-icon" data-icon="sparkles"></span>Failure prediction per link</h3></div>
+          <p class="muted" id="predInfo"></p>
+          <div id="predTable" class="table-wrap"></div></div>
+      </section>
+
+      <!-- Zero Trust -->
+      <section class="view" id="view-security" role="tabpanel">
+        <div class="two-col">
+          <div class="card"><div class="card-head"><h3><span class="h-icon" data-icon="shield"></span>Device trust</h3></div><div id="trustBars"></div></div>
+          <div class="card"><div class="card-head"><h3><span class="h-icon" data-icon="gauge"></span>Threat index <span class="muted small">Eq. 3</span></h3></div><div id="threat"></div>
+            <div class="card-head mt"><h3><span class="h-icon" data-icon="alert"></span>Security events</h3></div><div id="secEvents" class="list tall"></div></div>
+        </div>
+      </section>
+
+      <!-- Decisions & healing -->
+      <section class="view" id="view-healing" role="tabpanel">
+        <div class="card" id="pendingCard"><div class="card-head"><h3><span class="h-icon" data-icon="hand"></span>Waiting for approval</h3></div><div id="pending" class="list"></div></div>
+        <div class="two-col">
+          <div class="card"><div class="card-head"><h3><span class="h-icon" data-icon="target"></span>Active decisions</h3></div><div id="activeIntents" class="table-wrap"></div></div>
+          <div class="card"><div class="card-head"><h3><span class="h-icon" data-icon="wrench"></span>Self-healing</h3></div><div id="healStats" class="stats-row"></div><div id="healActions" class="table-wrap"></div></div>
+        </div>
+      </section>
+
+      <!-- Timeline -->
+      <section class="view" id="view-timeline" role="tabpanel">
+        <div class="toolbar">
+          <div class="search"><span data-icon="search"></span><input id="timelineSearch" type="search" placeholder="Search events…" aria-label="Search events"></div>
+          <div class="filter-pills" id="timelineFilters"></div>
+        </div>
+        <div class="card"><div id="timeline" class="list tall"></div></div>
+      </section>
+
+      <!-- Analytics -->
+      <section class="view" id="view-analytics" role="tabpanel">
+        <div class="toolbar"><label class="field inline"><span>Window</span><select id="anaWindow">
+          <option value="300">Last 5 min</option><option value="900" selected>Last 15 min</option>
+          <option value="3600">Last hour</option></select></label></div>
+        <div id="analytics"></div>
+      </section>
+
+      <!-- Control -->
+      <section class="view" id="view-control" role="tabpanel">
+        <p class="callout"><span data-icon="info"></span>Controls act on the network this dashboard runs: the simulation, or the live lab's emulated network. A production network would stay read-only.</p>
+        <div class="three-col">
+          <form class="card form-card" id="failForm">
+            <div class="card-head"><h3><span class="h-icon warn" data-icon="zap"></span>Inject failure</h3></div>
+            <label class="field"><span>Kind</span><select name="kind">
+              <option value="link">Link down</option><option value="switch">Switch down</option>
+              <option value="router">Router down</option><option value="latency">High latency</option>
+              <option value="packet_loss">Packet loss</option><option value="bandwidth">Bandwidth limit</option>
+            </select></label>
+            <label class="field"><span>Target</span><select name="target"></select></label>
+            <div class="field-row">
+              <label class="field"><span>Duration (s)</span><input name="duration_s" type="number" min="5" max="3600" value="60"></label>
+              <label class="field"><span>Warning ramp (s)</span><input name="warning_s" type="number" min="0" max="600" value="0"></label>
+            </div>
+            <label class="switch"><input name="physical" type="checkbox"><i></i><span>Physical damage <em>software cannot fix it</em></span></label>
+            <button type="submit" class="btn primary"><span data-icon="zap"></span>Inject failure</button>
+          </form>
+          <form class="card form-card" id="attackForm">
+            <div class="card-head"><h3><span class="h-icon bad" data-icon="crosshair"></span>Launch attack</h3></div>
+            <label class="field"><span>Kind</span><select name="kind">
+              <option value="port_scan">Port scan</option><option value="brute_force">Brute force</option>
+              <option value="spoofing">Identity spoofing</option><option value="lateral_movement">Lateral movement</option>
+              <option value="flood">Flood</option></select></label>
+            <label class="field"><span>Attacker</span><select name="attacker"></select></label>
+            <label class="field"><span>Duration (s)</span><input name="duration_s" type="number" min="5" max="3600" value="60"></label>
+            <p class="hint">Detectors need ~40 s of normal traffic after start-up before flood/volume detection works.</p>
+            <button type="submit" class="btn danger"><span data-icon="crosshair"></span>Launch attack</button>
+          </form>
+          <div class="card form-card">
+            <div class="card-head"><h3><span class="h-icon" data-icon="cpu"></span>Autonomy</h3></div>
+            <div class="segmented" id="autonomy" role="radiogroup" aria-label="Autonomy level">
+              <span class="seg-indicator" aria-hidden="true"></span>
+              <button type="button" data-level="L1" role="radio">L1<small>approve all</small></button>
+              <button type="button" data-level="L2" role="radio">L2<small>reversible auto</small></button>
+              <button type="button" data-level="L3" role="radio">L3<small>full auto</small></button>
+            </div>
+            <div class="card-head mt"><h3><span class="h-icon" data-icon="play"></span>Scripted demo</h3></div>
+            <p class="hint">Physical core-link cut, switch failure, predicted latency, flood and spoofing attacks over ~7 minutes.</p>
+            <button id="demoBtn" type="button" class="btn secondary"><span data-icon="play"></span>Run demo</button>
+            <div id="controlMsg" class="msg" role="status"></div>
+          </div>
+        </div>
+        <div class="card"><div class="card-head"><h3><span class="h-icon" data-icon="history"></span>Injected so far</h3></div><div id="injections" class="table-wrap"></div></div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<!-- confirm dialog (replaces window.confirm) -->
+<div class="modal-root" id="modal" hidden>
+  <div class="modal-backdrop" data-close></div>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" aria-describedby="modalBody">
+    <div class="modal-icon" id="modalIcon"></div>
+    <h2 id="modalTitle"></h2>
+    <p id="modalBody"></p>
+    <div class="modal-actions">
+      <button type="button" class="btn ghost" id="modalCancel">Cancel</button>
+      <button type="button" class="btn primary" id="modalOk">Confirm</button>
+    </div>
+  </div>
+</div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
 <div id="tooltip" class="tooltip" hidden></div>
-<script src="/static/js/dashboard.js"></script>
+<script src="/static/js/dashboard.js?v=2.4"></script>
 </body>
 </html>
