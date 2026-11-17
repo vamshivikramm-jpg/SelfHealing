@@ -13,6 +13,7 @@ with real pings, while a quarantine really drops a device's traffic.
 
 import pathlib
 import time
+from types import SimpleNamespace
 
 import pytest
 
@@ -155,7 +156,7 @@ def test_reroute_around_physical_fault_restores_delivery(lab):
 
     service = _service(lab)
     executor = LiveExecutor(lab["ctrl"], None, service, lab["client"])
-    verifier = LiveVerifier(None, service, lab["ctrl"])
+    verifier = LiveVerifier(SimpleNamespace(store=None), service, lab["ctrl"])
     pair = ("h4", "srv-web-1")
     _measure(service)
     assert service.latest(pair) == 1.0 and service.routes[pair] == ("h4", "sw-b", "sw-a", "srv-web-1")
@@ -185,7 +186,7 @@ def test_quarantine_drops_device_traffic(lab):
 
     service = _service(lab)
     executor = LiveExecutor(lab["ctrl"], None, service, lab["client"])
-    verifier = LiveVerifier(None, service, lab["ctrl"])
+    verifier = LiveVerifier(SimpleNamespace(store=None), service, lab["ctrl"])
     intent = {"type": "QUARANTINE", "target": "device:h4", "params": {"subject": "h4"}}
     assert not verifier.check({"check": "access_blocked", "subject": "h4"}, 0)[0]
     result = executor.execute(intent)
