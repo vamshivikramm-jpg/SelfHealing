@@ -15,7 +15,7 @@ help:
 	@echo "  net-down   stop and clean the enterprise network"
 	@echo "  net-reset  clean, rebuild and start the enterprise network"
 	@echo "  net-status show current network state (bridges/ports)"
-	@echo "  net-test   run all unit + integration tests in-container (Modules 1.1-1.4C.2)"
+	@echo "  net-test   run the live integration tests + Module 1 unit tests in-container"
 
 up:
 	docker compose up -d --build
@@ -49,6 +49,12 @@ net-reset:
 net-status:
 	$(NET_EXEC) python3 -m network.launcher status || echo "stack not running"
 
+# Live tests: the real-network integration tests plus the Module 1 unit tests.
+# (Modules 2-9 need numpy/scikit-learn/FastAPI and run on the host or in CI.)
+NET_UNIT = tests/unit/test_topology.py tests/unit/test_network_control.py tests/unit/test_event_bus.py \
+	tests/unit/test_failure.py tests/unit/test_failure_manager.py tests/unit/test_failure_scenarios.py \
+	tests/unit/test_network_impairments.py
+
 net-test:
-	docker compose up -d --build
-	$(NET_EXEC) bash -c "cd /workspace && python3 -m pytest tests/unit tests/integration -v"
+	docker compose up -d
+	$(NET_EXEC) bash -c "cd /workspace && python3 -m pytest $(NET_UNIT) tests/integration -v -p no:cacheprovider"

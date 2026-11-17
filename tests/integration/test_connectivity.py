@@ -54,8 +54,11 @@ def net():
 
 @pytest.fixture(scope="module")
 def hosts_by_subnet(net):
+    # the topology config lives on the builder/YAML, not on the Mininet object
+    from network.config import load_topology_config
+
     mapping = {}
-    for dev in net.config.host_devices:
+    for dev in load_topology_config(CONFIG).host_devices:
         mapping.setdefault(dev.subnet, []).append(dev)
     return mapping
 
@@ -96,5 +99,6 @@ def test_all_pairs_reach_each_other(net, hosts_by_subnet):
 def test_learning_flows_installed_after_traffic(net):
     h1 = net.get("h1")
     _ping(h1, "10.0.1.11")
-    flows = net.get("sw-a").cmd("ovs-ofctl dump-flows sw-a")
+    # the switches speak OpenFlow 1.3 only; ovs-ofctl defaults to 1.0
+    flows = net.get("sw-a").cmd("ovs-ofctl -O OpenFlow13 dump-flows sw-a")
     assert "output:" in flows, "no forwarding flows installed on sw-a"

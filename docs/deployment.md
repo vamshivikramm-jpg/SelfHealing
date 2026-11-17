@@ -8,7 +8,7 @@ are in: everything verified so far ran in **setting A**.
 | Network | in-memory simulated data plane | Mininet + Open vSwitch + Ryu in Docker |
 | Telemetry | `SimulatedSource` (reads the simulated network's real state) | live sources: **not built yet** |
 | Self-healing execution | `SimulatedExecutor` | live executor: **not built yet** |
-| Status | Modules 1–9 tested (unit tests, evaluations, dashboard) | Module 1 only, and never run on this project's hardware |
+| Status | Modules 1–9 tested (unit tests, evaluations, dashboard) | **Module 1 verified live** (6 integration tests, 215 unit tests in the container); Modules 2–8 not yet |
 
 ## A. Simulation setup
 
@@ -58,7 +58,12 @@ offline preview, not the simulation mode.
 Security: the viewer has **no login**. Operator controls exist only in
 simulation mode and answer 403 otherwise. Always bind to `127.0.0.1`.
 
-## B. Live lab (Linux VM) — planned, not yet verified
+## B. Live lab (Linux VM) — Module 1 verified
+
+First verified on 17 Nov 2026: Ubuntu 26.04 VM (2 vCPU, 3 GB RAM, 10 GB root
+volume), Docker 29, Compose 2.40. Both containers healthy; switches connect to
+Ryu; all same-subnet hosts and servers reach each other; learning flows are
+installed on the switches (`make net-test`: 6 integration + 215 unit tests).
 
 Docker on macOS has no Open vSwitch kernel module, so the live network
 needs a Linux VM. On the Apple-silicon Mac, use UTM with Ubuntu Server
@@ -75,9 +80,26 @@ docker compose ps                        # both must be "healthy"
 make smoke && make net-test              # first live baseline
 ```
 
-Known risk: `pip install ryu==4.34` can fail on new setuptools
-(`easy_install` / `get_script_args`); pin setuptools in
-`controller/Dockerfile` if it does.
+Lessons from the first live build (already fixed in the repository):
+
+- **Ryu 4.34** needs an old toolchain: `controller/Dockerfile` now uses
+  Python 3.9, setuptools 57.5 with `--no-build-isolation`, and eventlet 0.30.2.
+- **Ubuntu 24.04 pip (PEP 668)**: `network/Dockerfile` installs pytest from apt
+  and the project with `--break-system-packages`.
+- **DNS inside Docker builds** can fail on some VMs ("server misbehaving",
+  "Temporary failure in name resolution") even when the VM itself resolves
+  names. Build with the host network, then start without rebuilding:
+
+  ```bash
+  docker build --network host -t selfhealing-ryu-controller ./controller
+  docker build --network host -t selfhealing-mininet-net ./network
+  docker compose up -d
+  ```
+- **Disk**: Ubuntu's installer gives the root volume only part of the disk
+  (10 GB here); the two images need about 1.3 GB. Extend it with
+  `sudo lvextend -r -l +100%FREE /dev/ubuntu-vg/ubuntu-lv` if space runs low.
+- **Pasting commands**: the VM console has no clipboard; connect from the Mac
+  with `ssh user@<vm-ip>` instead (`ip -4 addr show` shows the address).
 
 ### Before the live network can run Modules 2–8 (Module 2.0 and beyond)
 
