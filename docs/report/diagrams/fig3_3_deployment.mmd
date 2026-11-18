@@ -1,0 +1,17 @@
+flowchart TB
+  B(["Browser on the laptop<br/>http://vm-ip:8000"])
+  subgraph VM["Linux VM (Ubuntu, Docker)"]
+    subgraph C1["mininet-net container"]
+      V["Dashboard + LiveRuntime<br/>(viewer, port 8000)"]
+      M["Mininet hosts h1-h5, servers<br/>services, users, attack programs"]
+      O["Open vSwitch bridges<br/>rtr-core, sw-a, sw-b"]
+    end
+    subgraph C2["ryu-controller container"]
+      R["Self-healing Ryu app<br/>OpenFlow :6653, REST :8080"]
+    end
+  end
+  B -- "HTTP + login" --> V
+  V -- "REST: routes, blocks,<br/>Zero Trust rules, stats" --> R
+  V -- "NetworkController,<br/>tc netem, pings" --> M
+  M --- O
+  O -- "OpenFlow 1.3" --> R

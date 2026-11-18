@@ -1,0 +1,35 @@
+flowchart TB
+  subgraph UIc["Dashboard component"]
+    WEB["Web UI<br/>(HTML, CSS, JS)"]
+    API["REST API + login<br/>(FastAPI)"]
+  end
+  subgraph RT["Runtime component"]
+    LOOP["Closed loop<br/>(SimulationRuntime / LiveRuntime)"]
+  end
+  subgraph INT["Intelligence components"]
+    P["Prediction"]
+    Z["Zero Trust"]
+    D["Decisions"]
+    H["Healing"]
+  end
+  subgraph DATA["Data components"]
+    T["Telemetry"]
+    S[("SQLite repository")]
+  end
+  subgraph NET["Network components"]
+    NC["NetworkController"]
+    RYU["Ryu app (REST)"]
+    DP["Mininet / OVS or<br/>simulated data plane"]
+  end
+  WEB -- "HTTP + JSON" --> API
+  API --> LOOP
+  LOOP --> T
+  LOOP --> P
+  LOOP --> Z
+  LOOP --> D
+  LOOP --> H
+  T --> S
+  H --> NC
+  H --> RYU
+  NC --> DP
+  RYU --> DP

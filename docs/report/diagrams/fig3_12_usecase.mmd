@@ -1,0 +1,27 @@
+flowchart LR
+  OP(["«actor»<br/>Network Operator"])
+  AD(["«actor»<br/>Administrator"])
+  NW(["«actor»<br/>Network (Ryu + Mininet)"])
+  subgraph SYS["Self-Healing Zero Trust Network"]
+    U1(["Sign in / sign out"])
+    U2(["Monitor live topology and health"])
+    U3(["View telemetry and analytics"])
+    U4(["View failure predictions"])
+    U5(["Review trust and security events"])
+    U6(["Approve or reject a decision"])
+    U7(["Set autonomy level L1-L3"])
+    U8(["Inject a failure or launch an attack"])
+    U9(["Run the scripted demo"])
+    U10(["Heal automatically and verify"])
+  end
+  OP --> U1
+  OP --> U2
+  OP --> U3
+  OP --> U4
+  OP --> U5
+  OP --> U6
+  AD --> U7
+  AD --> U8
+  AD --> U9
+  U10 --> NW
+  U6 -.->|«include»| U10
