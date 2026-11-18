@@ -1,0 +1,21 @@
+sequenceDiagram
+  autonumber
+  participant L as Link sw-a to sw-b
+  participant R as Ryu app
+  participant T as Telemetry
+  participant H as Decision + Healing
+  participant X as LiveExecutor
+  participant O as Dashboard
+  L--xR: probes lost (physical cut)
+  T->>R: GET /sh/stats/links
+  R-->>T: loss 100 %, carrier up
+  T->>H: link DOWN (health event)
+  H->>H: risk above threshold: RESTORE + REROUTE
+  H->>X: execute REROUTE
+  X->>R: PUT /sh/routes (pin via rtr-core)
+  R-->>X: path installed
+  H->>H: verify: client/server pings answered
+  H-->>O: REROUTE VERIFIED
+  H->>X: execute RESTORE (reconnect)
+  H->>H: verify: link still down
+  H-->>O: RESTORE ESCALATED (physical damage)

@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>AI-Powered Zero Trust Self-Healing Enterprise Network - Project Work-I Report</title>
+<meta name="author" content="P. Vamshi Vikram, P. Amitesh, G. Jeeyar">
+<style>
+  @page { size: A4; margin: 24mm 20mm 24mm 25mm; }
+  html { font-family: "Times New Roman", "Liberation Serif", Times, serif; font-size: 12pt; color: #000; }
+  body { margin: 0; line-height: 1.5; }
+  p { text-align: justify; margin: 0 0 8pt; hyphens: manual; }
+  .page { page-break-after: always; }
+  .chapter { page-break-before: always; }
+  h1.ch { text-align: center; font-size: 16pt; font-weight: bold; margin: 0 0 18pt; line-height: 1.35; }
+  h1.fm { text-align: center; font-size: 16pt; font-weight: bold; margin: 0 0 16pt; }
+  h2 { font-size: 13.5pt; font-weight: bold; margin: 14pt 0 6pt; page-break-after: avoid; }
+  h3 { font-size: 12pt; font-weight: bold; margin: 12pt 0 4pt; page-break-after: avoid; }
+  h4 { font-size: 12pt; font-weight: bold; font-style: italic; margin: 10pt 0 4pt; page-break-after: avoid; }
+  ul, ol { margin: 0 0 8pt 0; padding-left: 22pt; }
+  li { text-align: justify; margin: 0 0 3pt; }
+  b.lead { font-weight: bold; }
+  table.t { width: 100%; border-collapse: collapse; margin: 4pt 0 12pt; font-size: 10.5pt; line-height: 1.3; page-break-inside: auto; }
+  table.t th { background: #d9d9d9; border: 0.7pt solid #000; padding: 4pt 5pt; text-align: center; font-weight: bold; vertical-align: middle; }
+  table.t td { border: 0.7pt solid #000; padding: 4pt 5pt; vertical-align: top; text-align: left; }
+  table.t tr { page-break-inside: avoid; }
+  table.t { break-inside: avoid; }
+  table.t td.c { text-align: center; white-space: nowrap; }
+  .tcap { text-align: center; font-weight: bold; margin: 10pt 0 4pt; page-break-after: avoid; }
+  .fig { text-align: center; margin: 10pt 0 4pt; page-break-inside: avoid; }
+  .fig svg, .fig img { display: block; margin: 0 auto; height: auto; }
+  .fcap { text-align: center; font-weight: bold; margin: 4pt 0 12pt; page-break-before: avoid; }
+  .eq { display: flex; justify-content: space-between; align-items: center; margin: 6pt 0 10pt; padding: 0 18pt; font-style: italic; }
+  .eq span:last-child { font-style: normal; }
+  .note { font-size: 10.5pt; }
+  code, .mono { font-family: "Courier New", Courier, monospace; font-size: 10.5pt; }
+  pre.src { font-family: "Courier New", Courier, monospace; font-size: 8.6pt; line-height: 1.25; white-space: pre-wrap; margin: 4pt 0 10pt;
+    border-left: 1.5pt solid #999; padding: 2pt 0 2pt 8pt; page-break-inside: auto; }
+  /* title page */
+  .title-page { text-align: center; padding-top: 18mm; }
+  .title-page .name { font-size: 22pt; font-weight: bold; line-height: 1.25; margin-bottom: 6pt; }
+  .title-page .sub { font-size: 14pt; font-style: italic; margin-bottom: 6pt; }
+  .title-page .desc { font-size: 12pt; margin: 0 14mm 16pt; }
+  .title-page .rtype { font-size: 14pt; font-weight: bold; margin: 8pt 0 14pt; }
+  .title-page .by { margin-bottom: 4pt; }
+  .students { width: 120mm; margin: 0 auto 8pt; border-collapse: collapse; font-size: 12pt; }
+  .students td { padding: 1pt 0; text-align: left; }
+  .students td:last-child { text-align: left; padding-left: 20mm; }
+  .title-page .guide-name { font-weight: bold; font-size: 13pt; margin-top: 2pt; }
+  .title-page img.logo { width: 40mm; margin: 12pt auto 12pt; display: block; }
+  .title-page .inst { font-weight: bold; font-size: 13pt; line-height: 1.6; }
+  .title-page .small { font-size: 11pt; line-height: 1.6; }
+  /* certificate */
+  .cert p { line-height: 1.7; }
+  .sign { display: flex; justify-content: space-between; margin-top: 30mm; }
+  .sign div { line-height: 1.45; }
+  .sign div:last-child { text-align: right; }
+  .hod { text-align: center; margin-top: 22mm; line-height: 1.45; }
+  /* lists and contents */
+  table.lst { width: 100%; border-collapse: collapse; font-size: 11.5pt; }
+  table.lst th { border: 0.7pt solid #000; background: #d9d9d9; padding: 4pt 6pt; }
+  table.lst td { border: 0.7pt solid #000; padding: 3.5pt 6pt; }
+  #fm-loa table.lst td { padding: 2.2pt 6pt; }
+  table.lst td.n, table.lst td.p { text-align: center; white-space: nowrap; }
+  table.toc { width: 100%; border-collapse: collapse; font-size: 11.5pt; line-height: 1.55; }
+  table.toc td { padding: 0; vertical-align: bottom; }
+  table.toc td.p { width: 20mm; text-align: right; white-space: nowrap; }
+  table.toc .lvl1 td { font-weight: bold; padding-top: 6pt; }
+  table.toc .lvl2 td:first-child { padding-left: 9mm; }
+  table.toc .lvl3 td:first-child { padding-left: 18mm; }
+  .dots { display: flex; align-items: baseline; }
+  .dots span.t { white-space: nowrap; }
+  .dots span.d { flex: 1; border-bottom: 1px dotted #000; margin: 0 4pt 3pt; }
+  .kw { margin-top: 10pt; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════ TITLE PAGE ═══════════════════════════ -->
+<section class="page title-page" data-pg="none">
+  <div class="name">AI-Powered Zero Trust Self-Healing Enterprise Network</div>
+  <div class="sub">From Reactive Repair to Autonomous, Verified Network Healing</div>
+  <div class="desc">A Closed-Loop Software-Defined Network for Failure Prediction, Zero Trust Security and
+    Self-Healing using Ryu, Mininet and Machine Learning</div>
+  <div class="rtype">Project Work-I Report</div>
+  <div class="by">Submitted by</div>
+  <table class="students">
+    <tr><td>P. Vamshi Vikram</td><td>2451-23-737-058</td></tr>
+    <tr><td>P. Amitesh</td><td>2451-23-737-002</td></tr>
+    <tr><td>G. Jeeyar</td><td>2451-23-737-010</td></tr>
+  </table>
+  <div>Batch: 5</div>
+  <div style="margin-top:12pt">Under the Guidance of</div>
+  <div class="guide-name">Dr. Vasavi Bande</div>
+  <div>Sr Associate Professor, Department of Information Technology</div>
+  <img class="logo" src="{{ASSET:figs/mvsr_logo.png}}" alt="MVSR Engineering College logo">
+  <div class="inst">Department of Information Technology<br>MVSR ENGINEERING COLLEGE</div>
+  <div style="font-weight:bold">(An Autonomous Institution)</div>
+  <div class="small">(Affiliated to Osmania University &amp; Recognized by AICTE)<br>Nadergul, Balapur Mandal, Hyderabad – 501 510</div>
+  <div style="font-weight:bold; margin-top:6pt">AY: 2026–27</div>
+</section>
+
+<!-- ═══════════════════════════ CERTIFICATE ═══════════════════════════ -->
+<section class="page cert" data-pg="roman" id="fm-certificate">
+  <h1 class="fm" style="margin-top:6mm">CERTIFICATE</h1>
+  <p>This is to certify that the Project Work entitled <b>“AI-Powered Zero Trust Self-Healing Enterprise Network”</b>
+  is a bonafide work carried out during BE IV year VII semester by <b>P. Vamshi Vikram (2451-23-737-058), P. Amitesh
+  (2451-23-737-002)</b> and <b>G. Jeeyar (2451-23-737-010)</b> in partial fulfilment of the requirements for the award of
+  degree of Bachelor of Engineering in Information Technology from MVSR Engineering College, an Autonomous Institution,
+  affiliated to Osmania University Hyderabad, during the Academic Year 2026–27.</p>
+  <p>The results embodied in this report have not been submitted to any other university or institute for the award of
+  any degree or diploma.</p>
+  <div class="sign">
+    <div><b>Name of the Guide</b><br>Dr. Vasavi Bande<br>Sr Associate Professor<br>Department of IT</div>
+    <div><b>Project Co-ordinator</b><br>Dr. Vasavi Bande<br>Sr Associate Professor, ITD</div>
+  </div>
+  <div class="hod"><b>Dr A.V. Krishna Prasad</b><br>HOD ITD</div>
+</section>
+
+<!-- ═══════════════════════════ ABSTRACT ═══════════════════════════ -->
+<section class="page" data-pg="roman" id="fm-abstract">
+  <h1 class="fm">ABSTRACT</h1>
+  <p>Enterprise networks still depend on administrators to notice failures and attacks and to repair them by hand. Link
+  and device faults are found only after users are affected, configuration changes are made under pressure, and
+  security is enforced at the perimeter, so a compromised or misbehaving device inside the network is trusted by default.
+  The result is long outages, inconsistent responses and little evidence that a repair actually worked.</p>
+  <p>This project presents an <b>AI-Powered Zero Trust Self-Healing Enterprise Network</b>: a closed-loop system built on
+  Software-Defined Networking (SDN) that continuously <i>observes</i> the network, <i>analyses</i> it with failure prediction
+  and Zero Trust behaviour analysis, <i>decides</i> on repair or security actions with a fused risk score, <i>acts</i> through the
+  SDN controller and finally <i>verifies</i> that every action really worked, rolling back or escalating to a human when it did
+  not. The system is organised in nine modules: an SDN foundation (Mininet, Open vSwitch and a custom Ryu application),
+  telemetry and monitoring, data management and analytics, AI failure prediction, Zero Trust security, an intelligent
+  decision engine, autonomous self-healing, an operator dashboard with login, and an evaluation and deployment module.</p>
+  <p>All nine modules have been implemented and evaluated on a simulated network with ten seeded runs per condition, and
+  the complete closed loop has also been deployed on a live emulated network (Mininet, Open vSwitch and Ryu in Docker on a
+  Linux virtual machine). In simulation, automated healing reduced the mean time to repair from 78 s to 24 s and the
+  traffic lost by users during outages from 93 % to 33 %; removing verification made the system report 100 % success while
+  about two repairs per run had in fact failed. On the live network every injected failure was detected in about 2 s,
+  every healing action was verified by real pings, a slowly rising latency was predicted 46 s in advance, and every valid
+  real attack was detected within 4 s without quarantining any innocent device. The work is supported by 545 automated unit
+  tests and 44 integration tests on the live network.</p>
+  <p class="kw"><b>Keywords:</b> Software-Defined Networking, self-healing networks, Zero Trust, failure prediction, OpenFlow,
+  Ryu, Mininet, intent-based networking, closed-loop automation, network security.</p>
+</section>
+
+<!-- ═══════════════════════════ LISTS ═══════════════════════════ -->
+<section class="page" data-pg="roman" id="fm-lof">
+  <h1 class="fm">LIST OF FIGURES</h1>
+  {{LOF}}
+</section>
+<section class="page" data-pg="roman" id="fm-lot">
+  <h1 class="fm">LIST OF TABLES</h1>
+  {{LOT}}
+</section>
+<section class="page" data-pg="roman" id="fm-loa">
+  <h1 class="fm">LIST OF ABBREVIATIONS</h1>
+  <table class="lst">
+    <tr><th style="width:30%">Abbreviation</th><th>Full Form</th></tr>
+    <tr><td class="n">AI</td><td>Artificial Intelligence</td></tr>
+    <tr><td class="n">API</td><td>Application Programming Interface</td></tr>
+    <tr><td class="n">ARP</td><td>Address Resolution Protocol</td></tr>
+    <tr><td class="n">AUROC</td><td>Area Under the Receiver Operating Characteristic Curve</td></tr>
+    <tr><td class="n">BFD</td><td>Bidirectional Forwarding Detection</td></tr>
+    <tr><td class="n">CI</td><td>Continuous Integration / Confidence Interval</td></tr>
+    <tr><td class="n">DDoS</td><td>Distributed Denial of Service</td></tr>
+    <tr><td class="n">IBN</td><td>Intent-Based Networking</td></tr>
+    <tr><td class="n">IP</td><td>Internet Protocol</td></tr>
+    <tr><td class="n">JSON</td><td>JavaScript Object Notation</td></tr>
+    <tr><td class="n">MAC</td><td>Media Access Control (address)</td></tr>
+    <tr><td class="n">MAPE-K</td><td>Monitor, Analyse, Plan, Execute over a shared Knowledge base</td></tr>
+    <tr><td class="n">ML</td><td>Machine Learning</td></tr>
+    <tr><td class="n">MTTR</td><td>Mean Time To Repair</td></tr>
+    <tr><td class="n">NIST</td><td>National Institute of Standards and Technology</td></tr>
+    <tr><td class="n">NMS</td><td>Network Management System</td></tr>
+    <tr><td class="n">OVS</td><td>Open vSwitch</td></tr>
+    <tr><td class="n">REST</td><td>Representational State Transfer</td></tr>
+    <tr><td class="n">SDN</td><td>Software-Defined Networking</td></tr>
+    <tr><td class="n">SNMP</td><td>Simple Network Management Protocol</td></tr>
+    <tr><td class="n">SQL</td><td>Structured Query Language</td></tr>
+    <tr><td class="n">TCP / UDP</td><td>Transmission Control Protocol / User Datagram Protocol</td></tr>
+    <tr><td class="n">UI</td><td>User Interface</td></tr>
+    <tr><td class="n">UML</td><td>Unified Modeling Language</td></tr>
+    <tr><td class="n">VM</td><td>Virtual Machine</td></tr>
+    <tr><td class="n">ZT / ZTA</td><td>Zero Trust / Zero Trust Architecture</td></tr>
+  </table>
+</section>
+<section class="page" data-pg="roman" id="fm-toc">
+  <h1 class="fm">TABLE OF CONTENTS</h1>
+  {{TOC}}
+</section>
+
+<!-- ═══════════════════════════ CHAPTER 1 ═══════════════════════════ -->
+<section class="chapter" data-pg="arabic-start">
+<h1 class="ch" id="ch1" data-toc="1 Introduction">CHAPTER 1<br>INTRODUCTION</h1>
+<p>Enterprise networks connect the computers, servers and services on which an organisation depends. When a cable is cut,
+a switch fails or a link becomes congested, users lose access to applications, and every minute of downtime has a direct
+cost. In most organisations these problems are still handled reactively: monitoring tools raise an alarm, an administrator
+investigates, and the repair is configured by hand on each device. Diagnosis takes time, fixes are applied under pressure,
+and there is rarely any systematic evidence that the repair actually restored service [1], [2].</p>
+<p>Security is handled in a similarly static way. Traditional networks assume that anything inside the perimeter can be
+trusted. Once an attacker or a compromised device is inside, it can scan for services, try passwords or flood a server
+with little resistance. The Zero Trust model replaces this assumption with the principle of “never trust, always verify”:
+every request is checked against the identity, posture and current behaviour of the device that makes it [3]–[5].</p>
+<p>Software-Defined Networking (SDN) makes a different approach possible. In an SDN the switches no longer decide on their
+own how to forward traffic; a logically central controller programs them through a standard protocol such as OpenFlow [6],
+[7]. Because the whole network can be observed and reconfigured from one place in software, a program can detect a
+problem, decide how to respond and install the response across the network in seconds. Tools such as Mininet [8] and Open
+vSwitch [9] allow realistic SDN networks to be emulated on a single computer, and controllers such as Ryu [10] expose the
+switches to programs written in Python.</p>
+<p>At the same time, machine learning has been applied to network telemetry to detect anomalies and to predict failures
+before they occur [11]–[13], and research on autonomic computing has described systems that manage themselves through a
+continuous Monitor–Analyse–Plan–Execute loop [14], [15]. What is still missing in practice is a system that brings these
+ideas together: one that predicts failures, evaluates trust, decides on an action, carries it out <i>and then proves that
+it worked</i>, while keeping a human operator in control.</p>
+<p>This project builds such a system. The network continuously collects telemetry, scores every link for the risk of
+failure, maintains a trust score for every device from its observed behaviour, fuses these signals into a single risk
+value, and selects repair or security actions (restore, reroute, load-balance, quarantine or block). Every action is
+executed through the SDN controller and then verified against post-conditions measured on the network; actions that do not
+achieve their effect are retried, rolled back or escalated. An operator dashboard shows the whole loop in real time and
+lets authorised operators approve actions, change the level of autonomy and inject failures or attacks for testing.</p>
+
+<h2 id="s1-1" data-toc="1.1 Problem Statement">1.1 Problem Statement</h2>
+<p>Enterprise network operations suffer from four connected problems:</p>
+<ol>
+  <li><b>Reactive failure handling.</b> Faults are detected only after they affect users, and repair depends on manual
+  diagnosis and configuration. The mean time to repair is therefore long and varies with the availability and experience of
+  administrators.</li>
+  <li><b>No early warning.</b> Many failures are preceded by observable warning signs such as rising latency or packet loss,
+  but conventional threshold alarms fire only once a limit is crossed, when it is already too late to act proactively.</li>
+  <li><b>Implicit trust inside the network.</b> Perimeter-based security trusts devices once they are inside. A device that
+  spoofs another device’s address, scans for services, guesses passwords or floods a server is often not stopped until
+  significant damage is done.</li>
+  <li><b>Unverified automation.</b> Where automation exists, it usually assumes that a command which returned without error
+  has fixed the problem. A configuration change cannot repair a physically cut cable, yet a naive system reports the repair
+  as successful, hiding the outage from operators.</li>
+</ol>
+<p>The problem addressed by this project is therefore to design and build a network that detects and predicts failures and
+security threats, decides on appropriate actions, executes them automatically within operator-defined limits, and verifies
+every action on the network itself, so that both availability and trustworthiness improve.</p>
+
+<h2 id="s1-2" data-toc="1.2 Objectives of the Project">1.2 Objectives of the Project</h2>
+<p>The objectives of the project, refined during implementation, are:</p>
+<ol>
+  <li>To build a reproducible enterprise test network using Mininet, Open vSwitch and a custom Ryu controller application,
+  with programmatic control of devices, links and impairments (latency, packet loss, bandwidth limits).</li>
+  <li>To collect telemetry continuously (link status, latency, loss, throughput, utilisation and drops) and evaluate the
+  health of every link and device.</li>
+  <li>To store telemetry history, derive features and baselines, and generate labelled datasets for failure prediction.</li>
+  <li>To predict link failures before they happen and to compare statistical and machine-learning models fairly
+  (objective O1: at least 80 % of failures with warning signs predicted at least 30 s ahead with at most one false alarm per
+  hour).</li>
+  <li>To implement Zero Trust security: device identities, continuous trust scores, behaviour detectors, default-deny access
+  policy and enforcement of every flow by the switches.</li>
+  <li>To fuse prediction, trust, threat and fault signals into a single risk score and select safe actions (restore,
+  reroute, load-balance, quarantine, block) with configurable levels of autonomy and operator approval.</li>
+  <li>To execute actions automatically and to verify every action against measured post-conditions, with retry, rollback,
+  escalation and fail-back.</li>
+  <li>To provide a secure operator dashboard showing the topology, telemetry, predictions, trust, decisions and healing
+  actions in real time.</li>
+  <li>To evaluate the system with reproducible experiments and statistics, and to validate the complete loop on a live
+  emulated network.</li>
+</ol>
+
+<h2 id="s1-3" data-toc="1.3 Scope of the Project">1.3 Scope of the Project</h2>
+<p>The project covers the complete closed loop from data collection to verified action for a small enterprise network: one
+core router, two access switches, five user hosts and two servers, plus a redundant variant with a direct link between the
+access switches and generated campus topologies of up to 547 devices for scalability tests. It covers link, switch and
+router failures, performance degradations (latency, loss, bandwidth), and five classes of attack (port scanning, password
+brute force, identity spoofing, lateral movement and flooding).</p>
+<p>The following are outside the scope of the project:</p>
+<ul>
+  <li>Deployment on physical enterprise hardware; the live network is emulated with Mininet and Open vSwitch.</li>
+  <li>Wide-area, wireless or multi-domain networks, and routing protocols such as OSPF or BGP.</li>
+  <li>Deep packet inspection, malware analysis and encrypted-traffic analysis.</li>
+  <li>Multi-user role management for the dashboard (a single operator account is provided).</li>
+</ul>
+
+<h2 id="s1-4" data-toc="1.4 Relevance / Significance of the Project">1.4 Relevance / Significance of the Project</h2>
+<p>Network outages and security incidents are among the most expensive operational problems an organisation faces, and
+both are aggravated by slow, manual response. By detecting failures within a few seconds, predicting some of them in
+advance, and repairing or routing around them automatically, the system reduces downtime directly; in the evaluation the
+mean time to repair fell from 78 s to 24 s. By checking every flow against identity and behaviour, it stops attacks that a
+perimeter model would allow.</p>
+<p>The most significant aspect of the project, however, is <b>verification</b>. The evaluation shows that a system without
+verification reports every repair as successful while some repairs achieved nothing. Requiring measured evidence for every
+action makes automated network management trustworthy enough for operators to rely on. The project also contributes a
+reusable, open test bed: the same intelligence runs on a simulated network for fast, repeatable experiments and on a live
+emulated network for realistic validation, which makes it useful for teaching and further research in SDN, network
+security and autonomic systems.</p>
+</section>
+
+<!-- ═══════════════════════════ CHAPTER 2 ═══════════════════════════ -->
+<section class="chapter">
+<h1 class="ch" id="ch2" data-toc="2 Literature Survey">CHAPTER 2<br>LITERATURE SURVEY</h1>
+<p>The literature survey followed a structured approach. The scope was defined around five themes that the project combines:
+network management and SDN, failure prediction and anomaly detection, Zero Trust security, autonomic and self-healing
+systems, and intent-based networking. For each theme, foundational papers, standards and the documentation of the tools used
+were reviewed, and each work was examined for its features, strengths and limitations with respect to building a verified,
+closed-loop network.</p>
+
+<h2 id="s2-1" data-toc="2.1 Review of Existing Systems or Related Work">2.1 Review of Existing Systems or Related Work</h2>
+<h3>2.1.1 Reactive Network Management</h3>
+<p>Conventional network management systems (NMS) poll devices through SNMP, display alarms when thresholds are crossed and
+leave diagnosis and repair to administrators. Kim and Feamster describe how this device-by-device configuration makes
+management error-prone and slow, and argue for programmable, centralised control [1].</p>
+<ul>
+  <li><b>Features:</b> device inventories, polling of counters, threshold alarms, dashboards and logs.</li>
+  <li><b>Strengths:</b> mature, vendor-supported and well understood by operators.</li>
+  <li><b>Limitations:</b> reactive by design; no prediction; repairs are manual and unverified; no link between monitoring
+  and security decisions.</li>
+</ul>
+
+<h3>2.1.2 Software-Defined Networking and OpenFlow</h3>
+<p>McKeown et al. introduced OpenFlow, which lets a controller install match–action rules in switch flow tables [6].
+Kreutz et al. survey the resulting SDN architecture, separating the data plane, control plane and management applications
+[7], and RFC 7426 defines the corresponding layers and terminology [16]. Mininet emulates complete SDN networks with real
+Linux network stacks on one machine [8]; Open vSwitch provides a production-grade software switch [9]; and Ryu provides a
+Python framework for controller applications with OpenFlow 1.3 support and a REST interface [10].</p>
+<ul>
+  <li><b>Features:</b> centralised view of the network, programmable forwarding, flow statistics, fast reconfiguration.</li>
+  <li><b>Strengths:</b> enables software to detect and repair problems network-wide; open-source tools allow realistic
+  emulation.</li>
+  <li><b>Limitations:</b> the controller provides mechanisms, not intelligence; by itself it neither predicts failures nor
+  evaluates trust nor verifies the effect of changes.</li>
+</ul>
+
+<h3>2.1.3 Failure Prediction and Anomaly Detection</h3>
+<p>Chandola, Banerjee and Kumar classify anomaly detection techniques into statistical, classification-based and
+nearest-neighbour approaches [11]. Liu, Ting and Zhou propose Isolation Forest, an unsupervised detector that isolates
+anomalies with random partitions [12]. Lakhina, Crovella and Diot show that changes in the entropy of traffic feature
+distributions reveal network-wide anomalies such as floods and scans [13]. Supervised ensembles such as random forests [17]
+and gradient boosting [18] are widely used for classification and are available in scikit-learn [19].</p>
+<ul>
+  <li><b>Features:</b> learn normal behaviour and flag or predict deviations; entropy measures for traffic concentration.</li>
+  <li><b>Strengths:</b> can give early warning before a hard failure; unsupervised methods need no labelled failures.</li>
+  <li><b>Limitations:</b> predictions alone do not repair anything; results depend strongly on how representative the training
+  data is; complex models can overfit and raise false alarms.</li>
+</ul>
+
+<h3>2.1.4 Zero Trust Security</h3>
+<p>Kindervag’s Zero Trust model removes the notion of a trusted internal network [3]. Google’s BeyondCorp applied it at
+scale by authorising every request on the basis of device and user state rather than network location [4]. NIST SP 800-207
+defines a reference Zero Trust Architecture with a policy decision point, a policy enforcement point and continuous
+evaluation of trust [5].</p>
+<ul>
+  <li><b>Features:</b> per-request authorisation, device identity and posture, least privilege, continuous monitoring.</li>
+  <li><b>Strengths:</b> limits lateral movement and contains compromised devices.</li>
+  <li><b>Limitations:</b> architectures and products focus on access decisions; they are rarely integrated with network
+  failure handling, and trust is often static rather than derived from observed behaviour.</li>
+</ul>
+
+<h3>2.1.5 Autonomic and Self-Healing Systems</h3>
+<p>Kephart and Chess set out the vision of autonomic computing: systems that configure, heal, optimise and protect
+themselves [14]. IBM’s architectural blueprint describes the MAPE-K loop of monitoring, analysis, planning and execution
+over shared knowledge [15]. Bidirectional Forwarding Detection (BFD) detects failures of forwarding paths quickly with
+lightweight probes rather than relying on the state of interfaces [20].</p>
+<ul>
+  <li><b>Features:</b> continuous closed-loop control; fast detection of path failures.</li>
+  <li><b>Strengths:</b> reduces dependence on human reaction time.</li>
+  <li><b>Limitations:</b> loops often assume that executed actions succeed; verification and rollback are left to the
+  implementer, and failures that software cannot repair must be recognised and escalated.</li>
+</ul>
+
+<h3>2.1.6 Intent-Based Networking</h3>
+<p>RFC 9315 defines intent-based networking: operators state <i>what</i> they want and the system determines <i>how</i> to
+achieve and continuously assure it [21]. Separating a decided intent from its implementation allows the same decision to
+be executed on different networks and checked against its intended outcome.</p>
+<ul>
+  <li><b>Features:</b> declarative intents, translation into configuration, assurance of outcomes.</li>
+  <li><b>Strengths:</b> decouples decision logic from device details; supports verification by design.</li>
+  <li><b>Limitations:</b> concepts are mostly defined at the level of standards and products; few open implementations
+  combine intents with prediction and trust.</li>
+</ul>
+
+<p class="tcap" data-table="Table 2.1: Summary of Reviewed Literature">Table 2.1: Summary of Reviewed Literature</p>
+<table class="t">
+  <tr><th style="width:7%">Ref.</th><th style="width:27%">Work</th><th>Main Contribution</th><th style="width:27%">Relevance / Gap for this Project</th></tr>
+  <tr><td class="c">[6]</td><td>McKeown et al., OpenFlow</td><td>Programmable flow tables controlled by a central controller</td><td>Basis of all actions; no intelligence by itself</td></tr>
+  <tr><td class="c">[7]</td><td>Kreutz et al., SDN survey</td><td>Layered SDN architecture, applications and challenges</td><td>Architecture used for the control layer</td></tr>
+  <tr><td class="c">[8]</td><td>Lantz et al., Mininet</td><td>Emulation of SDN networks on one machine</td><td>Live test network of the project</td></tr>
+  <tr><td class="c">[11]</td><td>Chandola et al., anomaly detection survey</td><td>Taxonomy of anomaly detection methods</td><td>Guided the choice of baseline models</td></tr>
+  <tr><td class="c">[12]</td><td>Liu et al., Isolation Forest</td><td>Unsupervised isolation-based anomaly detection</td><td>Compared as a failure predictor</td></tr>
+  <tr><td class="c">[13]</td><td>Lakhina et al., entropy</td><td>Traffic-feature entropy reveals network-wide anomalies</td><td>Flood detector (H<sub>flow</sub> in Eq. 3)</td></tr>
+  <tr><td class="c">[3], [5]</td><td>Kindervag; NIST SP 800-207</td><td>Zero Trust principle and reference architecture</td><td>Policy decision and enforcement design</td></tr>
+  <tr><td class="c">[4]</td><td>Ward and Beyer, BeyondCorp</td><td>Per-request authorisation at scale</td><td>Per-flow enforcement in the switches</td></tr>
+  <tr><td class="c">[14], [15]</td><td>Kephart and Chess; IBM MAPE-K</td><td>Autonomic self-management loop</td><td>Closed loop; verification added by this project</td></tr>
+  <tr><td class="c">[20]</td><td>RFC 5880, BFD</td><td>Fast path-failure detection with probes</td><td>Link probing of the live network</td></tr>
+  <tr><td class="c">[21]</td><td>RFC 9315, intent-based networking</td><td>Intents separated from implementation</td><td>Intents with post-conditions</td></tr>
+</table>
+
+<h2 id="s2-2" data-toc="2.2 Comparative Analysis of Existing Systems">2.2 Comparative Analysis of Existing Systems</h2>
+<p>Table 2.2 compares the main classes of existing approaches with the proposed system on the parameters that matter for a
+self-healing, Zero Trust network. The comparison is qualitative and based on the published descriptions of each class of
+system; no benchmarking of third-party products was performed.</p>
+<p class="tcap" data-table="Table 2.2: Comparative Analysis of Existing Systems">Table 2.2: Comparative Analysis of Existing Systems</p>
+<table class="t">
+  <tr><th style="width:15%">Parameter</th><th>Traditional NMS</th><th>SDN Controller Alone</th><th>ML Anomaly Detection</th><th>Zero Trust Products</th><th>Proposed System</th></tr>
+  <tr><td>Failure detection</td><td>Threshold alarms, polling</td><td>Port status events</td><td>Learned deviations</td><td>Not addressed</td><td>Link probes, telemetry health and port status (≈2 s live)</td></tr>
+  <tr><td>Failure prediction</td><td>No</td><td>No</td><td>Yes, alert only</td><td>No</td><td>Yes, feeds proactive decisions</td></tr>
+  <tr><td>Automatic repair</td><td>No (manual)</td><td>Possible, application-specific</td><td>No</td><td>No</td><td>Restore, reroute, load balance</td></tr>
+  <tr><td>Verification of actions</td><td>Manual</td><td>Not built in</td><td>Not applicable</td><td>Not applicable</td><td>Every action verified; rollback and escalation</td></tr>
+  <tr><td>Security model</td><td>Perimeter</td><td>Static rules</td><td>Detection only</td><td>Per-request, identity based</td><td>Per-flow Zero Trust with behaviour-based trust</td></tr>
+  <tr><td>Integration of signals</td><td>Separate tools</td><td>None</td><td>Single signal</td><td>Access signals only</td><td>Prediction, trust, threat and faults fused (Eq. 4)</td></tr>
+  <tr><td>Human control</td><td>Full manual</td><td>Developer-defined</td><td>Alerts</td><td>Policy administration</td><td>Autonomy levels L1–L3 with approvals</td></tr>
+</table>
+
+<h2 id="s2-3" data-toc="2.3 Gaps Identified">2.3 Gaps Identified</h2>
+<ul>
+  <li><b>No closed loop from prediction to verified action.</b> Prediction research stops at alerts; SDN applications act but
+  rarely predict; neither verifies outcomes.</li>
+  <li><b>Security and reliability are handled separately.</b> Failure management and Zero Trust use different tools and
+  signals, so a single decision cannot weigh a degrading link against a misbehaving device.</li>
+  <li><b>Automation is trusted blindly.</b> Executed commands are assumed to work; failures that software cannot fix (a cut
+  cable) are reported as repaired.</li>
+  <li><b>Static trust.</b> Trust is often granted once at authentication instead of being updated continuously from observed
+  behaviour.</li>
+  <li><b>Few open, reproducible test beds.</b> Results are hard to reproduce without a shared environment that supports both
+  fast simulation and realistic emulation.</li>
+</ul>
+
+<h2 id="s2-4" data-toc="2.4 Proposed System">2.4 Proposed System</h2>
+<p>The proposed system closes these gaps with a single closed loop that runs every collection step (2–5 s):</p>
+<ol>
+  <li><b>Observe:</b> telemetry from the network — on the live network from active link probes, OpenFlow counters and port
+  status — is collected and every link and device is rated healthy, degraded or down.</li>
+  <li><b>Analyse:</b> a predictor scores every link for impending failure; the Zero Trust engine updates each device’s trust
+  score from its real flows and logins and computes a network threat index.</li>
+  <li><b>Decide:</b> the decision engine fuses these signals into a risk score and creates intents (RESTORE, REROUTE,
+  LOAD_BALANCE, QUARANTINE, BLOCK, MONITOR) after safety checks and, depending on the autonomy level, operator approval.</li>
+  <li><b>Act:</b> the healing engine executes each intent through the network controller and the Ryu REST API.</li>
+  <li><b>Verify:</b> each action is checked against its post-conditions measured on the network; failed actions are retried,
+  rolled back or escalated, and successful reroutes fail back after the original fault is repaired.</li>
+</ol>
+<p>The same intelligence runs on two interchangeable back-ends: a simulated data plane for fast, reproducible experiments
+and a live emulated network for realistic validation. A web dashboard with operator login presents the whole loop.</p>
+</section>
+
+<!-- ═══════════════════════════ CHAPTER 3 ═══════════════════════════ -->
+<section class="chapter">
+<h1 class="ch" id="ch3" data-toc="3 System Design">CHAPTER 3<br>SYSTEM DESIGN</h1>
+<h2 id="s3-1" data-toc="3.1 System Architecture">3.1 System Architecture</h2>
+<p>The architecture is organised into five layers, shown in Fig. 3.1. The presentation layer contains the login page and
+the dashboard. The intelligence layer contains the four engines that analyse and act: failure prediction, Zero Trust,
+decision and self-healing. The data and analytics layer collects telemetry and stores its history. The control layer is the
+only layer that changes the network: the NetworkController manages devices, links and impairments, and the custom Ryu
+application programs the switches and exposes measurements and controls through a REST API. The data plane consists of
+Mininet hosts and Open vSwitch switches on the live network, or of the simulated data plane in simulation mode.</p>
+{{FIG:figs/fig3_1_architecture.svg:100:Fig. 3.1: System Architecture of the Self-Healing Zero Trust Network}}
+<p><b>Closed loop.</b> Fig. 3.2 shows the control loop that connects the layers. It follows the MAPE-K pattern [15] but adds
+an explicit verification stage: an action counts as successful only when its post-conditions are observed on the network.</p>
+{{FIG:figs/fig3_2_closed_loop.svg:46:Fig. 3.2: Closed-Loop Workflow (Observe, Analyse, Decide, Act, Verify)}}
+<p><b>Mathematical model.</b> (Equations are numbered as in the project’s research model, which also defines Eq. 1, the
+calibrated failure probability, and Eq. 5, the path-selection objective.) The trust of a device <i>s</i> at time <i>t</i> decreases with recent anomalies and recovers as
+they age, with a half-life of 300 s:</p>
+<div class="eq"><span>T(s,t) = T<sub>base</sub>(s) − Σ<sub>j</sub> w<sub>j</sub> · a<sub>j</sub>(s,t) · κ<sup>(t − t<sub>j</sub>)</sup></span><span>(2)</span></div>
+<p>where T<sub>base</sub> is the base trust from role and posture, a<sub>j</sub> an anomaly of type <i>j</i> with severity
+weight w<sub>j</sub>, and κ the decay factor. The network threat index combines the drop in traffic entropy, the rate of
+failed logins and the share of anomalous devices:</p>
+<div class="eq"><span>Thr(t) = mean( H<sub>flow</sub>(t), R<sub>auth</sub>(t), F<sub>anom</sub>(t) ) ∈ [0, 1]</span><span>(3)</span></div>
+<p>The decision engine fuses the failure probability p̂, trust, threat and the known fault indicator into one risk score per
+target, with policy weights α = 0.30, β = 0.15, γ = 0.15, δ = 0.40 and an action threshold of 0.15:</p>
+<div class="eq"><span>R(n,t) = α·p̂(n,t) + β·(1 − T(n,t)) + γ·Thr(n,t) + δ·I<sub>fault</sub>(n,t)</span><span>(4)</span></div>
+<p>Alternative paths are chosen with Dijkstra’s algorithm [22] over the edge cost</p>
+<div class="eq"><span>c(l) = w<sub>loss</sub>·loss(l) + w<sub>lat</sub>·latency(l) + w<sub>rel</sub>·p̂(l) + ε</span><span>(6)</span></div>
+<p>where the small term ε prefers shorter paths when costs are otherwise equal.</p>
+<p><b>Deployment.</b> On the live lab (Fig. 3.3) two Docker containers run on a Linux virtual machine. The
+<span class="mono">mininet-net</span> container hosts the dashboard, the live runtime, the Mininet hosts with their services,
+users and attack programs, and the Open vSwitch bridges. The <span class="mono">ryu-controller</span> container runs the
+self-healing Ryu application, which listens for OpenFlow connections on port 6653 and offers its REST API on port 8080.</p>
+{{FIG:figs/fig3_3_deployment.svg:56:Fig. 3.3: Deployment of the Live Lab on a Linux Virtual Machine}}
+<p>Table 3.1 describes the enterprise test topology used throughout the project.</p>
+<p class="tcap" data-table="Table 3.1: Enterprise Test Topology">Table 3.1: Enterprise Test Topology</p>
+<table class="t">
+  <tr><th style="width:18%">Device</th><th style="width:16%">Type</th><th style="width:22%">Address / Subnet</th><th>Role and Policy</th></tr>
+  <tr><td>rtr-core</td><td>Core router</td><td>gateways 10.0.1.1, 10.0.2.1</td><td>Connects the two access switches; routing is performed by the Ryu application</td></tr>
+  <tr><td>sw-a, sw-b</td><td>Access switches</td><td>subnet-a, subnet-b</td><td>OpenFlow 1.3 switches; redundant topology adds a direct sw-a↔sw-b link</td></tr>
+  <tr><td>h1</td><td>Host</td><td>10.0.1.10 (subnet-a)</td><td>Administrator workstation; may use SSH to servers</td></tr>
+  <tr><td>h2, h3</td><td>Hosts</td><td>10.0.1.11–12 (subnet-a)</td><td>Employees; web access only</td></tr>
+  <tr><td>h4, h5</td><td>Hosts</td><td>10.0.2.10–11 (subnet-b)</td><td>Contractors (unmanaged, lower base trust); web access only</td></tr>
+  <tr><td>srv-web-1</td><td>Server</td><td>10.0.1.20 (subnet-a)</td><td>Web server (ports 80, 443); may query the database</td></tr>
+  <tr><td>srv-db-1</td><td>Server</td><td>10.0.1.21 (subnet-a)</td><td>Database server (port 5432)</td></tr>
+</table>
+
+<h2 id="s3-2" data-toc="3.2 Modules Description">3.2 Modules Description</h2>
+<p>The system is divided into nine modules (Fig. 3.4). Each module has a clear input, output and responsibility, and the
+modules communicate through a shared event bus and well-defined interfaces, so that simulated and live implementations of
+the same interface can be exchanged without changing the rest of the system.</p>
+{{FIG:figs/fig3_4_modules.svg:80:Fig. 3.4: Module Architecture and Dependencies}}
+<h3>M1 – SDN Foundation</h3>
+<ul>
+  <li><b>Responsibilities:</b> build the topology from YAML configuration; start and stop the network; enable and disable
+  devices; connect and disconnect links; apply latency, loss and bandwidth limits with Linux traffic control (tc netem/htb)
+  [23]; inject and recover failures through a FailureManager with reusable scenarios.</li>
+  <li><b>Ryu application:</b> loop-safe shortest-path routing between subnets with virtual gateways, proxy ARP (no flooding
+  between switches), pinned paths, drop rules, active link probing and per-flow Zero Trust enforcement, all exposed through
+  a REST API.</li>
+</ul>
+<h3>M2 – Telemetry and Monitoring</h3>
+<ul>
+  <li><b>Responsibilities:</b> collect link status, latency, loss, capacity, byte/packet/drop counters and node status every
+  step; derive throughput, utilisation and drop rates from counter deltas; rate every element HEALTHY, DEGRADED or DOWN.</li>
+  <li><b>Live source:</b> one-way latency and loss from probe packets sent five times per second across every link, corrected
+  by half of the OpenFlow echo round trip; a link that loses all probes is down even if its carrier is up, following BFD
+  [20].</li>
+</ul>
+<h3>M3 – Data Management and Analytics</h3>
+<ul>
+  <li><b>Responsibilities:</b> store telemetry and events in SQLite; resample and clean series; compute rolling-window
+  features (mean, standard deviation, minimum, maximum, last value, change and slope) and behaviour baselines; generate
+  labelled datasets with a prediction horizon and cooldown that prevent label leakage; summarise availability and MTTR.</li>
+</ul>
+<h3>M4 – AI Failure Prediction</h3>
+<ul>
+  <li><b>Responsibilities:</b> score each link for the probability of failure within the horizon. Six models are compared on
+  separate training, validation and test runs: health thresholds, a z-score baseline, Isolation Forest [12], logistic
+  regression, random forest [17] and gradient boosting [18]. A model registry keeps a champion and challengers; the alarm
+  threshold is chosen on validation data. On the live network the z-score model learns the network’s own normal behaviour
+  during a warm-up period.</li>
+</ul>
+<h3>M5 – Zero Trust Security</h3>
+<ul>
+  <li><b>Responsibilities:</b> keep device identities (role, owner, MAC, posture); update trust with Eq. 2; run six behaviour
+  detectors (fingerprint mismatch, failed logins, port scan, policy violation, volume anomaly, entropy-based flood); compute
+  the threat index (Eq. 3); decide every request with a default-deny policy; quarantine devices whose trust falls below
+  0.3, with hysteresis before release.</li>
+  <li><b>Enforcement:</b> rules are pushed to the Ryu application, which decides the first packet of every new flow at its
+  ingress switch (identity binding, role access, quarantine) and installs a per-flow allow or drop rule; replies to allowed
+  connections are recognised statefully.</li>
+</ul>
+<h3>M6 – Intelligent Decision Engine</h3>
+<ul>
+  <li><b>Responsibilities:</b> compute the fused risk (Eq. 4); create intents with explicit post-conditions; plan reroutes
+  with Dijkstra and Eq. 6 and load balancing by minimising the maximum link utilisation; apply safety checks (conflicts,
+  cooldowns, blast radius) and the autonomy level (L1 approve all, L2 reversible actions automatic, L3 fully automatic).</li>
+</ul>
+<h3>M7 – Autonomous Self-Healing</h3>
+<ul>
+  <li><b>Responsibilities:</b> execute intents (restore, reroute, load balance, quarantine, block); verify post-conditions
+  from telemetry, measured traffic delivery and enforcement probes; retry, roll back or escalate; fail back to the original
+  routes once a fault is repaired. On the live network, reroutes are pinned paths and quarantines are drop rules installed
+  through the Ryu REST API, and delivery is measured with real pings.</li>
+</ul>
+<h3>M8 – Dashboard</h3>
+<ul>
+  <li><b>Responsibilities:</b> operator login; live topology map with health, reroute, prediction and quarantine overlays;
+  telemetry charts; predictions; trust and security events; decisions with approve/reject; healing actions with their
+  verification evidence; timeline and analytics; controls to inject failures and attacks and to change autonomy.</li>
+</ul>
+<h3>M9 – Evaluation and Deployment</h3>
+<ul>
+  <li><b>Responsibilities:</b> reproducible experiments with fixed seeds and recorded provenance; ten runs per condition with
+  95 % confidence intervals, paired Wilcoxon tests [24] and Holm correction [25]; baselines, ablations, sensitivity and
+  scalability studies; continuous integration; deployment guide and live-lab experiment.</li>
+</ul>
+<p class="tcap" data-table="Table 3.2: Summary of Modules and Implementation Status">Table 3.2: Summary of Modules and Implementation Status</p>
+<table class="t">
+  <tr><th style="width:17%">Module</th><th>Main Input</th><th>Main Output</th><th style="width:22%">Status</th></tr>
+  <tr><td>M1 SDN Foundation</td><td>Topology YAML, operator commands</td><td>Running network, failures, Ryu forwarding</td><td>Implemented; verified live</td></tr>
+  <tr><td>M2 Telemetry</td><td>Probes, counters, port status</td><td>Samples, health reports</td><td>Implemented; verified live</td></tr>
+  <tr><td>M3 Analytics</td><td>Telemetry, events</td><td>History, features, datasets, MTTR</td><td>Implemented</td></tr>
+  <tr><td>M4 Prediction</td><td>Feature windows</td><td>Failure scores, alerts</td><td>Implemented; verified live</td></tr>
+  <tr><td>M5 Zero Trust</td><td>Flows, logins, identities</td><td>Trust, threat, per-flow rules</td><td>Implemented; verified live</td></tr>
+  <tr><td>M6 Decisions</td><td>Health, scores, trust, threat</td><td>Intents with post-conditions</td><td>Implemented; verified live</td></tr>
+  <tr><td>M7 Self-Healing</td><td>Intents</td><td>Verified, rolled-back or escalated actions</td><td>Implemented; verified live</td></tr>
+  <tr><td>M8 Dashboard</td><td>Runtime state</td><td>Operator views and controls</td><td>Implemented (simulation and live)</td></tr>
+  <tr><td>M9 Evaluation</td><td>Experiment profiles</td><td>Statistics, figures, reports</td><td>Implemented</td></tr>
+</table>
+
+<h2 id="s3-3" data-toc="3.3 User Interface Design">3.3 User Interface Design</h2>
+<p>The dashboard is a single-page web application served by FastAPI and written in plain HTML, CSS and JavaScript, with the
+topology drawn by Cytoscape.js [26]. It uses a consistent dark design with a collapsible sidebar, a top bar showing the
+mode, health counts, autonomy level and a notification centre, and a card-based layout that adapts to desktop and phone
+screens. Every page and API call requires a signed-in operator. The screens below are captured from the running system.</p>
+{{IMG:figs/ui_login.png:92:Fig. 3.5: Login Page}}
+<p>The login page (Fig. 3.5) authenticates the operator; sessions are random 256-bit tokens in an HttpOnly cookie, and an
+address is locked out for one minute after five failed attempts.</p>
+{{IMG:figs/ui_overview.png:92:Fig. 3.6: Overview – Live Topology, Key Indicators and Active Decisions}}
+<p>The overview (Fig. 3.6) shows key indicators, the live topology and the active decisions. In the captured state a
+physical cut of the sw-a↔sw-b link is shown as a red dashed link, the rerouted paths via rtr-core as moving cyan dashes, a
+link predicted to fail with a purple glow, and the quarantined host h5 in red.</p>
+{{IMG:figs/ui_telemetry.png:92:Fig. 3.7: Telemetry – Per-Link Charts with Health Thresholds}}
+{{IMG:figs/ui_prediction.png:92:Fig. 3.8: Failure Prediction per Link}}
+{{IMG:figs/ui_security.png:92:Fig. 3.9: Zero Trust – Device Trust, Threat Index and Security Events}}
+{{IMG:figs/ui_healing.png:92:Fig. 3.10: Decisions and Self-Healing with Verification Evidence}}
+<p>Fig. 3.10 shows the healing log for the physical cut: the REROUTE is VERIFIED with the measured delivery of every
+affected client–server pair, while the RESTORE is ESCALATED because a software reconnect cannot repair physical damage.</p>
+{{IMG:figs/ui_control.png:92:Fig. 3.11: Control – Failure Injection, Attacks, Autonomy and Scripted Demo}}
+
+<h2 id="s3-4" data-toc="3.4 UML Diagrams">3.4 UML Diagrams</h2>
+<p>The UML diagrams in this section model the design of the system. The diagrams were written in Mermaid and rendered to
+vector graphics; their sources are listed in Appendix A.</p>
+<h3 id="s3-4-1" data-toc="3.4.1 Structural Diagrams" data-lvl="3">3.4.1 Structural Diagrams</h3>
+<p><b>Class Diagram.</b> Fig. 3.12 shows the main classes. Simulated and live back-ends share interfaces through
+inheritance: <span class="mono">LiveSource</span> extends <span class="mono">TelemetrySource</span>,
+<span class="mono">LiveExecutor</span> extends <span class="mono">SimulatedExecutor</span>, <span class="mono">LiveVerifier</span>
+extends <span class="mono">Verifier</span> and <span class="mono">LiveRuntime</span> extends
+<span class="mono">SimulationRuntime</span>. The runtime composes the collector and the healing engine; the healing engine
+uses the decision engine, an executor and a verifier.</p>
+{{FIG:figs/fig3_10_class.svg:58:Fig. 3.12: Class Diagram}}
+<p><b>Component Diagram.</b> Fig. 3.13 shows the deployable components and their dependencies: the dashboard component (web
+UI and REST API with login), the runtime component that drives the closed loop, the intelligence components, the data
+components and the network components.</p>
+{{FIG:figs/fig3_11_component.svg:78:Fig. 3.13: Component Diagram}}
+<h3 id="s3-4-2" data-toc="3.4.2 Behavioural Diagrams" data-lvl="3">3.4.2 Behavioural Diagrams</h3>
+<p><b>Use Case Diagram.</b> Fig. 3.14 shows the actors and use cases. The network operator signs in, monitors the network and
+approves or rejects decisions; the administrator sets the autonomy level and injects failures or attacks for testing; the
+network itself is the actor on which automatic healing acts.</p>
+{{FIG:figs/fig3_12_usecase.svg:100:Fig. 3.14: Use Case Diagram}}
+<p><b>Activity Diagram.</b> Fig. 3.15 shows the activities of one pass of the closed loop, from telemetry collection through
+risk evaluation, approval, execution and verification to retry, rollback or escalation.</p>
+{{FIG:figs/fig3_13_activity.svg:58:Fig. 3.15: Activity Diagram of the Closed Loop}}
+<p><b>Sequence Diagram.</b> Fig. 3.16 shows the interactions when a link is physically cut on the live network: the probes
+detect the loss, the decision engine creates RESTORE and REROUTE intents, the reroute is pinned through the Ryu REST API and
+verified with real pings, and the restore is escalated because the damage is physical.</p>
+{{FIG:figs/fig3_14_sequence.svg:100:Fig. 3.16: Sequence Diagram of Healing a Physical Link Cut}}
+</section>
+
+<!-- ═══════════════════════════ CHAPTER 4 ═══════════════════════════ -->
+<section class="chapter">
+<h1 class="ch" id="ch4" data-toc="4 Implementation Status and Validation">CHAPTER 4<br>IMPLEMENTATION STATUS AND VALIDATION</h1>
+<p>This chapter records the technology stack, the implementation status of every function in simulation and on the live
+network, the test cases and validation approach with their results, and the limitations of the work.</p>
+<h2 id="s4-1" data-toc="4.1 Technology Stack">4.1 Technology Stack</h2>
+<p class="tcap" data-table="Table 4.1: Technology Stack">Table 4.1: Technology Stack</p>
+<table class="t">
+  <tr><th style="width:24%">Layer / Purpose</th><th style="width:34%">Technology</th><th>Use in the Project</th></tr>
+  <tr><td>Network emulation</td><td>Mininet 2.3, Open vSwitch</td><td>Hosts, switches and links of the live network [8], [9]</td></tr>
+  <tr><td>SDN controller</td><td>Ryu 4.34, OpenFlow 1.3</td><td>Custom self-healing application with REST API [10]</td></tr>
+  <tr><td>Impairments</td><td>Linux tc (netem, htb)</td><td>Latency, loss, bandwidth and physical faults [23]</td></tr>
+  <tr><td>Programming language</td><td>Python 3.9–3.12</td><td>All modules</td></tr>
+  <tr><td>Machine learning</td><td>NumPy, scikit-learn, SciPy</td><td>Prediction models and statistics [19]</td></tr>
+  <tr><td>Storage</td><td>SQLite</td><td>Telemetry and event history</td></tr>
+  <tr><td>Web back end</td><td>FastAPI, Uvicorn</td><td>Dashboard API, login and sessions</td></tr>
+  <tr><td>Web front end</td><td>HTML, CSS, JavaScript, Cytoscape.js</td><td>Dashboard and topology map [26]</td></tr>
+  <tr><td>Containers</td><td>Docker, Docker Compose</td><td>mininet-net and ryu-controller containers</td></tr>
+  <tr><td>Testing and CI</td><td>pytest, GitHub Actions</td><td>Unit tests on Python 3.9 and 3.11; live integration tests</td></tr>
+  <tr><td>Configuration</td><td>YAML</td><td>Topology, identities, Zero Trust and decision policies</td></tr>
+  <tr><td>Diagrams</td><td>Mermaid</td><td>UML and architecture diagrams</td></tr>
+</table>
+
+<h2 id="s4-2" data-toc="4.2 Implemented Functionality">4.2 Implemented Functionality</h2>
+<p>Table 4.2 lists the main functions and where each has been verified. “Simulation” means the function was evaluated on the
+simulated network; “Live” means it was verified by integration tests or experiments on the emulated Mininet/Ryu network.</p>
+<p class="tcap" data-table="Table 4.2: Implemented Functionality and Verification">Table 4.2: Implemented Functionality and Verification</p>
+<table class="t">
+  <tr><th style="width:36%">Functionality</th><th style="width:12%">Simulation</th><th style="width:10%">Live</th><th>Evidence</th></tr>
+  <tr><td>Topology build, device and link control, impairments</td><td class="c">Yes</td><td class="c">Yes</td><td>Failure integration tests (latency, loss, bandwidth, link, switch, host)</td></tr>
+  <tr><td>Routing between subnets, proxy ARP, loop safety</td><td class="c">n/a</td><td class="c">Yes</td><td>All 42 host pairs reachable; no broadcast storm on the redundant topology</td></tr>
+  <tr><td>Telemetry with health evaluation</td><td class="c">Yes</td><td class="c">Yes</td><td>50 ms impairment measured as 40–65 ms; 30 % loss as 10–55 %</td></tr>
+  <tr><td>Physical-fault detection</td><td class="c">Yes</td><td class="c">Yes</td><td>Cut seen by probes while the controller showed the link connected</td></tr>
+  <tr><td>Failure prediction</td><td class="c">Yes</td><td class="c">Yes</td><td>Six models compared; live latency ramp predicted 46 s ahead</td></tr>
+  <tr><td>Zero Trust detection and per-flow enforcement</td><td class="c">Yes</td><td class="c">Yes</td><td>All five real attacks detected in live tests; policy enforced by switches</td></tr>
+  <tr><td>Decision engine with autonomy and approvals</td><td class="c">Yes</td><td class="c">Yes</td><td>100 % agreement with ground-truth rules in simulation</td></tr>
+  <tr><td>Restore, reroute, quarantine with verification</td><td class="c">Yes</td><td class="c">Yes</td><td>Reroute verified by pings; quarantine verified by a blocked ping</td></tr>
+  <tr><td>Rollback, escalation and fail-back</td><td class="c">Yes</td><td class="c">Yes</td><td>Physical damage escalated; routes restored after repair</td></tr>
+  <tr><td>Dashboard with login</td><td class="c">Yes</td><td class="c">Yes</td><td>Browser tests on desktop and phone sizes; 9 login unit tests</td></tr>
+  <tr><td>Load balancing</td><td class="c">Yes</td><td class="c">Partly</td><td>Evaluated in simulation; live bandwidth limits applied, not load-tested</td></tr>
+  <tr><td>Campus-scale topologies (up to 547 devices)</td><td class="c">Yes</td><td class="c">No</td><td>Scalability study in simulation only</td></tr>
+</table>
+
+<h2 id="s4-3" data-toc="4.3 Test Cases and Validation">4.3 Test Cases and Validation</h2>
+<p>Validation was carried out at three levels. First, <b>545 automated unit tests</b> run on every change through continuous
+integration on Python 3.9 and 3.11. Second, <b>44 integration tests</b> run on the live emulated network
+(<span class="mono">make net-test</span>). Third, <b>experiments</b> measured the performance of the complete system: ten seeded
+runs per condition in simulation (3 simulated hours each, 12 failures and 6 attacks per run), reported as mean
+[95 % confidence interval] with paired Wilcoxon tests and Holm correction, and one scripted round of every failure and attack
+on the live network. Table 4.3 lists representative test cases and their results.</p>
+<p class="tcap" data-table="Table 4.3: Test Cases and Results">Table 4.3: Test Cases and Results</p>
+<table class="t">
+  <tr><th style="width:9%">ID</th><th style="width:9%">Module</th><th>Test Scenario</th><th>Expected Outcome</th><th style="width:9%">Result</th></tr>
+  <tr><td class="c">TC-01</td><td>M1</td><td>Add 50 ms latency on sw-a↔h2</td><td>Ping round trip rises to ≈100 ms and returns after clearing</td><td class="c">Passed</td></tr>
+  <tr><td class="c">TC-02</td><td>M1</td><td>Fail and restart switch sw-a</td><td>Traffic stops, switch reconnects to Ryu, traffic resumes</td><td class="c">Passed</td></tr>
+  <tr><td class="c">TC-03</td><td>M1</td><td>Ping every pair of the 7 hosts and servers</td><td>All 42 pairs reachable, including across subnets</td><td class="c">Passed</td></tr>
+  <tr><td class="c">TC-04</td><td>M1</td><td>Disconnect sw-a↔sw-b on the redundant topology</td><td>Traffic fails over via rtr-core without broadcast storm</td><td class="c">Passed</td></tr>
+  <tr><td class="c">TC-05</td><td>M2</td><td>Physically cut a link (100 % loss, controller not informed)</td><td>Link reported DOWN from probes</td><td class="c">Passed</td></tr>
+  <tr><td class="c">TC-06</td><td>M2</td><td>Inject 30 % loss on rtr-core↔sw-b</td><td>Measured loss 10–55 %, link degraded but up</td><td class="c">Passed</td></tr>
+  <tr><td class="c">TC-07</td><td>M4</td><td>Learn normal traffic, then ramp latency</td><td>Failure predicted before the fault</td><td class="c">Passed</td></tr>
+  <tr><td class="c">TC-08</td><td>M5</td><td>Contractor h4 connects to database port 5432</td><td>Connection dropped by the switch</td><td class="c">Passed</td></tr>
+  <tr><td class="c">TC-09</td><td>M5</td><td>Real port scan from h5</td><td>port_scan anomaly; h5 quarantined</td><td class="c">Passed</td></tr>
+  <tr><td class="c">TC-10</td><td>M5</td><td>Forged packets from h4 with h1’s IP and MAC</td><td>Dropped at first switch; fingerprint_mismatch</td><td class="c">Passed</td></tr>
+  <tr><td class="c">TC-11</td><td>M5</td><td>Wrong-password logins from h3</td><td>auth_failures anomaly detected</td><td class="c">Passed</td></tr>
+  <tr><td class="c">TC-12</td><td>M5</td><td>4000 packet/s UDP flood from h1</td><td>Volume or flood anomaly detected</td><td class="c">Passed</td></tr>
+  <tr><td class="c">TC-13</td><td>M7</td><td>Physical cut of sw-a↔sw-b with live runtime</td><td>REROUTE verified by pings; RESTORE escalated</td><td class="c">Passed</td></tr>
+  <tr><td class="c">TC-14</td><td>M7</td><td>Quarantine h4</td><td>Ping from h4 receives no answer; h5 unaffected</td><td class="c">Passed</td></tr>
+  <tr><td class="c">TC-15</td><td>M8</td><td>Open the dashboard without signing in</td><td>Redirect to login; API answers 401</td><td class="c">Passed</td></tr>
+  <tr><td class="c">TC-16</td><td>M8</td><td>Five wrong passwords</td><td>Address locked out for one minute</td><td class="c">Passed</td></tr>
+</table>
+
+<h3>4.3.1 Results on the Simulated Network</h3>
+<p>Table 4.4 compares the healing modes. Every healing mode reduced the mean time to repair and the traffic lost by users in
+all ten runs (p = 0.006). Removing verification produced the most important result: the system then reports 100 % success
+while about two repairs per run did nothing, and every escalation is hidden.</p>
+<p class="tcap" data-table="Table 4.4: Self-Healing Results in Simulation (mean [95 % CI], 10 runs)">Table 4.4: Self-Healing Results in Simulation (mean [95 % CI], 10 runs)</p>
+<table class="t">
+  <tr><th>Mode</th><th>MTTR</th><th>User-Visible Loss</th><th>Success Rate</th><th>False Success Claims / Run</th></tr>
+  <tr><td>No healing (baselines a, b, c)</td><td class="c">78 [72, 83] s</td><td class="c">92.8 %</td><td class="c">—</td><td class="c">0</td></tr>
+  <tr><td>Restore only</td><td class="c">25 [15, 36] s</td><td class="c">34.8 %</td><td class="c">57 %</td><td class="c">0</td></tr>
+  <tr><td><b>Full system</b></td><td class="c"><b>24 [14, 35] s</b></td><td class="c"><b>32.6 %</b></td><td class="c"><b>78 %</b></td><td class="c"><b>0</b></td></tr>
+  <tr><td>Random reroute (baseline d)</td><td class="c">24 [14, 35] s</td><td class="c">32.5 %</td><td class="c">78 %</td><td class="c">0</td></tr>
+  <tr><td>Full without prediction</td><td class="c">24 [14, 35] s</td><td class="c">32.6 %</td><td class="c">72 %</td><td class="c">0</td></tr>
+  <tr><td>Full without verification</td><td class="c">24 [14, 35] s</td><td class="c">32.6 %</td><td class="c">100 % (false)</td><td class="c">2.0 [1.0, 3.0]</td></tr>
+</table>
+{{FIG:figs/healing_mttr.svg:70:Fig. 4.1: Mean Time to Repair by Healing Mode (95 % CI)}}
+<p>Table 4.5 compares the failure-prediction models against objective O1. The simple, interpretable models were strongest on
+these data: logistic regression predicted 97 % of failures that had warning signs at least 30 s ahead and met O1 in 90 % of
+repetitions; tree ensembles over-fitted and raised more false alarms. Failures without warning signs were not predicted by
+any model, as expected.</p>
+<p class="tcap" data-table="Table 4.5: Failure-Prediction Models (10 repetitions)">Table 4.5: Failure-Prediction Models (10 repetitions)</p>
+<table class="t">
+  <tr><th>Model</th><th>Caught ≥ 30 s Ahead (with signs)</th><th>False Alarms / h</th><th>Median Lead</th><th>Repetitions Meeting O1</th></tr>
+  <tr><td>Health thresholds</td><td class="c">38 %</td><td class="c">0.00</td><td class="c">48 s</td><td class="c">0 %</td></tr>
+  <tr><td>Z-score baseline</td><td class="c">83 %</td><td class="c">0.00</td><td class="c">72 s</td><td class="c">60 %</td></tr>
+  <tr><td>Isolation Forest</td><td class="c">19 %</td><td class="c">0.07</td><td class="c">82 s</td><td class="c">0 %</td></tr>
+  <tr><td><b>Logistic regression</b></td><td class="c"><b>97 %</b></td><td class="c"><b>0.00</b></td><td class="c"><b>72 s</b></td><td class="c"><b>90 %</b></td></tr>
+  <tr><td>Random forest</td><td class="c">73 %</td><td class="c">0.35</td><td class="c">58 s</td><td class="c">30 %</td></tr>
+  <tr><td>Gradient boosting</td><td class="c">58 %</td><td class="c">0.33</td><td class="c">52 s</td><td class="c">10 %</td></tr>
+</table>
+<p>Zero Trust detected every synthetic attack with an AUROC of 0.946 and a false-reject rate of 0 % for legitimate devices;
+1.0 % of attack flows (the first flood packets) were allowed before detection. The decision engine agreed with the
+ground-truth rules in 100 % of incidents with 0.03 unneeded actions per hour and a 95th-percentile decision latency of
+0.18 ms. At 547 devices one 5 s step took 0.26 s in a single Python process (Fig. 4.2).</p>
+{{FIG:figs/scalability.svg:70:Fig. 4.2: Processing Time per Step versus Network Size}}
+
+<h3>4.3.2 Results on the Live Network</h3>
+<p>Table 4.6 summarises one scripted round on the live emulated network (redundant topology, autonomy L2, 2 s step,
+60 s faults, 40 s attacks). The port-scan incident of that round was excluded because the virtual machine was suspended
+during it; port scans are covered by the integration tests TC-09.</p>
+<p class="tcap" data-table="Table 4.6: Results on the Live Emulated Network (one round)">Table 4.6: Results on the Live Emulated Network (one round)</p>
+<table class="t">
+  <tr><th>Incident</th><th>Detected</th><th>Predicted Ahead</th><th>Verified Action</th><th>Service Restored</th><th>Outcome</th></tr>
+  <tr><td>Physical cut sw-a↔sw-b</td><td class="c">2.1 s</td><td class="c">—</td><td class="c">6 s</td><td class="c">2 s</td><td>Reroute verified; restore escalated; fail-back</td></tr>
+  <tr><td>Link disconnected sw-a↔sw-b</td><td class="c">2.1 s</td><td class="c">—</td><td class="c">6 s</td><td class="c">2 s</td><td>Restore and reroute verified</td></tr>
+  <tr><td>rtr-core down</td><td class="c">2.1 s</td><td class="c">—</td><td class="c">6 s</td><td class="c">n/a</td><td>Restore verified; no traffic affected</td></tr>
+  <tr><td>150 ms latency after a 60 s ramp</td><td class="c">0.0 s</td><td class="c">46 s</td><td class="c">38 s</td><td class="c">0 s</td><td>Predicted; reroute verified</td></tr>
+  <tr><td>20 % packet loss</td><td class="c">4.0 s</td><td class="c">—</td><td class="c">26 s</td><td class="c">24 s</td><td>Reroute verified; 10 % traffic lost</td></tr>
+  <tr><td>Brute force from h3</td><td class="c">4.0 s</td><td class="c">—</td><td class="c">—</td><td class="c">—</td><td>Quarantined at 6 s</td></tr>
+  <tr><td>Spoofing from h4</td><td class="c">0.0 s</td><td class="c">—</td><td class="c">—</td><td class="c">—</td><td>Quarantined at 2 s</td></tr>
+  <tr><td>Lateral movement from h2</td><td class="c">2.0 s</td><td class="c">—</td><td class="c">—</td><td class="c">—</td><td>Quarantined at 24 s</td></tr>
+  <tr><td>Flood from h1</td><td class="c">2.0 s</td><td class="c">—</td><td class="c">—</td><td class="c">—</td><td>Detected; high-trust admin not quarantined</td></tr>
+</table>
+<p>No innocent device was quarantined during the live round. All five failures were detected in about one step, every
+healing action was verified on the network, and the latency ramp was predicted 46 s before the failure.</p>
+
+<h2 id="s4-4" data-toc="4.4 Limitations">4.4 Limitations</h2>
+<ul>
+  <li>The live network is emulated with Mininet and Open vSwitch on one virtual machine; results on physical hardware may
+  differ.</li>
+  <li>Failures, warning patterns and attacks used for training and evaluation were designed by the project team, so the
+  prediction and detection results show that the designed patterns are learnable, not that real networks exhibit them.</li>
+  <li>The live evaluation is a single round without confidence intervals; the statistical evaluation was performed in
+  simulation.</li>
+  <li>Decision correctness is measured against rules written with the same design as the decision strategies.</li>
+  <li>In the main topology only one link has an alternative path, which limits what rerouting can demonstrate; the
+  scalability study used generated topologies in simulation only.</li>
+  <li>The dashboard uses a single operator account over plain HTTP; it is suitable for a private lab network only.</li>
+  <li>A single volume anomaly does not quarantine a high-trust device; whether floods from trusted devices should be
+  quarantined is a policy decision.</li>
+</ul>
+
+<h2 id="s4-5" data-toc="4.5 Conclusion and Future Enhancements">4.5 Conclusion and Future Enhancements</h2>
+<p>The project designed, implemented and evaluated an AI-powered Zero Trust self-healing enterprise network. A closed loop
+of observation, analysis, decision, action and verification runs end to end on both a simulated and a live emulated SDN
+network. Automated healing reduced the mean time to repair from 78 s to 24 s and user-visible loss from 93 % to 33 % in
+simulation; on the live network failures were detected in about 2 s and every action was verified with real traffic.
+Zero Trust enforced per flow in the switches detected every valid real attack without quarantining innocent devices. The
+strongest finding is that <b>verification is essential</b>: without it the system claims complete success while repairs
+silently fail. Simple predictors matched or outperformed complex models on these data, and prediction adds most value where
+detection is slow.</p>
+<p>Future enhancements include:</p>
+<ul>
+  <li>Repeating the live experiments over multiple rounds to report confidence intervals, and validating on physical
+  switches.</li>
+  <li>Running larger generated campus topologies on the live network and making Zero Trust rule compilation incremental.</li>
+  <li>Training prediction models on recorded real traffic and adding sequence models.</li>
+  <li>Route-aware load measurement and congestion-aware path costs.</li>
+  <li>Multiple operator accounts with roles, HTTPS and audit logging for the dashboard.</li>
+  <li>Integration with standard telemetry (gNMI, sFlow) and routing protocols for production networks.</li>
+</ul>
+</section>
+
+<!-- ═══════════════════════════ REFERENCES ═══════════════════════════ -->
+<section class="chapter">
+<h1 class="fm" id="refs" data-toc="References" data-lvl="1">REFERENCES</h1>
+<table class="lst" style="border:none; font-size:11pt; line-height:1.4">
+{{REFS}}
+</table>
+</section>
+
+<!-- ═══════════════════════════ APPENDIX ═══════════════════════════ -->
+<section class="chapter">
+<h1 class="fm" id="appA" data-toc="Appendix A – Mermaid Source of Diagrams" data-lvl="1">APPENDIX A – MERMAID SOURCE OF DIAGRAMS</h1>
+<p>The diagrams in Chapter 3 were produced from the Mermaid sources below and rendered to SVG with Mermaid 10.9.1 in a
+headless browser. Fig. 3.1 is a layered drawing generated directly as SVG by the script
+<span class="mono">docs/report/diagrams/fig3_1_architecture.py</span>. All sources are in the project repository under
+<span class="mono">docs/report/diagrams/</span>.</p>
+{{APPENDIX}}
+</section>
+</body>
+</html>

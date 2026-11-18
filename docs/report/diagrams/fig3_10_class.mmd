@@ -1,0 +1,76 @@
+classDiagram
+  class NetworkController {
+    +start_network()
+    +enable_node(name)
+    +disable_node(name)
+    +connect_link(a, b)
+    +set_link_latency(a, b, ms)
+  }
+  class FailureManager {
+    +inject_switch_failure(name)
+    +disconnect_link(a, b)
+    +recover_switch(name)
+  }
+  class TelemetrySource {
+    <<abstract>>
+    +collect(ts) List~Sample~
+  }
+  class SimulatedSource
+  class LiveSource
+  class TelemetryCollector {
+    +collect_once()
+    +health()
+  }
+  class OnlinePredictor {
+    +threshold
+    +predictions()
+  }
+  class ZeroTrustEngine {
+    +step(ts, flows, auth)
+    +add_block(subject)
+  }
+  class DecisionEngine {
+    +step(signals)
+    +approve(id)
+  }
+  class HealingEngine {
+    +step(ts)
+    +history()
+  }
+  class SimulatedExecutor {
+    +execute(intent)
+    +undo(intent, undo)
+  }
+  class LiveExecutor
+  class Verifier {
+    +check(post, ts)
+  }
+  class LiveVerifier
+  class RyuClient {
+    +pin(ip, path)
+    +block(match)
+    +links()
+  }
+  class SimulationRuntime {
+    +inject_failure()
+    +launch_attack()
+    +tick()
+  }
+  class LiveRuntime
+  TelemetrySource <|-- SimulatedSource
+  TelemetrySource <|-- LiveSource
+  SimulatedExecutor <|-- LiveExecutor
+  Verifier <|-- LiveVerifier
+  SimulationRuntime <|-- LiveRuntime
+  TelemetryCollector o-- TelemetrySource
+  FailureManager --> NetworkController
+  OnlinePredictor --> TelemetryCollector
+  DecisionEngine ..> ZeroTrustEngine : trust, threat
+  DecisionEngine ..> OnlinePredictor : failure scores
+  HealingEngine --> DecisionEngine
+  HealingEngine --> SimulatedExecutor
+  HealingEngine --> Verifier
+  LiveExecutor --> RyuClient
+  LiveSource --> RyuClient
+  SimulationRuntime *-- HealingEngine
+  SimulationRuntime *-- TelemetryCollector

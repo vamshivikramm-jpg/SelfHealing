@@ -1,0 +1,19 @@
+flowchart TB
+  S((" ")) --> A["Collect telemetry<br/>(probes, counters, health)"]
+  A --> B["Score links for failure;<br/>update trust from flows and logins"]
+  B --> C["Compute fused risk (Eq. 4)"]
+  C --> D{"Risk above<br/>action threshold?"}
+  D -- "no" --> A
+  D -- "yes" --> E["Create intent<br/>(RESTORE, REROUTE, QUARANTINE)"]
+  E --> F{"Approval needed<br/>at this autonomy level?"}
+  F -- "yes" --> G{"Operator<br/>approves?"}
+  G -- "no" --> A
+  G -- "yes" --> H["Execute action"]
+  F -- "no" --> H
+  H --> I{"Post-conditions<br/>verified?"}
+  I -- "yes" --> J["Mark verified;<br/>fail back after repair"]
+  I -- "no" --> K{"Attempts<br/>left?"}
+  K -- "yes" --> H
+  K -- "no" --> L["Roll back and escalate<br/>to a human"]
+  J --> A
+  L --> A

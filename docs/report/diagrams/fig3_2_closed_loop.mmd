@@ -1,0 +1,12 @@
+flowchart TB
+  O["1. Observe<br/>collect telemetry every step"] --> A["2. Analyse<br/>health, failure score,<br/>trust and threat"]
+  A --> D["3. Decide<br/>fused risk (Eq. 4) to intents<br/>RESTORE, REROUTE, QUARANTINE"]
+  D --> S{"Autonomy and<br/>safety checks"}
+  S -- "needs approval (L1)" --> H(["Operator approves<br/>or rejects"])
+  H --> X
+  S -- "allowed" --> X["4. Act<br/>execute through the<br/>controller / Ryu REST"]
+  X --> V{"5. Verify<br/>post-conditions hold?"}
+  V -- "yes" --> OK(["Verified;<br/>fail back after repair"])
+  V -- "no" --> R["Retry, roll back<br/>or escalate"]
+  OK --> O
+  R --> O

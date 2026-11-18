@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 360" font-family="Helvetica, Arial, sans-serif">
+<rect width="760" height="360" fill="#fff"/>
+<text x="64" y="24" font-size="15" font-weight="bold" fill="#222">Repairs falsely reported successful (per run)</text>
+<line x1="64" x2="744" y1="270.0" y2="270.0" stroke="#e5e5e5"/>
+<text x="58" y="274.0" font-size="11" text-anchor="end" fill="#555">0</text>
+<line x1="64" x2="744" y1="224.0" y2="224.0" stroke="#e5e5e5"/>
+<text x="58" y="228.0" font-size="11" text-anchor="end" fill="#555">1</text>
+<line x1="64" x2="744" y1="178.0" y2="178.0" stroke="#e5e5e5"/>
+<text x="58" y="182.0" font-size="11" text-anchor="end" fill="#555">2</text>
+<line x1="64" x2="744" y1="132.0" y2="132.0" stroke="#e5e5e5"/>
+<text x="58" y="136.0" font-size="11" text-anchor="end" fill="#555">3</text>
+<line x1="64" x2="744" y1="86.0" y2="86.0" stroke="#e5e5e5"/>
+<text x="58" y="90.0" font-size="11" text-anchor="end" fill="#555">4</text>
+<line x1="64" x2="744" y1="40.0" y2="40.0" stroke="#e5e5e5"/>
+<text x="58" y="44.0" font-size="11" text-anchor="end" fill="#555">5</text>
+<text x="14" y="155.0" font-size="12" fill="#333" transform="rotate(-90 14 155.0)" text-anchor="middle">count</text>
+<rect x="81.5" y="270.0" width="62.2" height="0.0" fill="#2f6fbf" opacity="0.85"/>
+<text x="112.6" y="264.0" font-size="11" text-anchor="middle" fill="#222">0</text>
+<line x1="112.6" x2="112.6" y1="270.0" y2="270.0" stroke="#222"/>
+<line x1="106.6" x2="118.6" y1="270.0" y2="270.0" stroke="#222"/>
+<line x1="106.6" x2="118.6" y1="270.0" y2="270.0" stroke="#222"/>
+<text x="112.6" y="286" font-size="11" text-anchor="end" fill="#333" transform="rotate(-30 112.6 286)">no_healing</text>
+<rect x="178.6" y="270.0" width="62.2" height="0.0" fill="#d1495b" opacity="0.85"/>
+<text x="209.7" y="264.0" font-size="11" text-anchor="middle" fill="#222">0</text>
+<line x1="209.7" x2="209.7" y1="270.0" y2="270.0" stroke="#222"/>
+<line x1="203.7" x2="215.7" y1="270.0" y2="270.0" stroke="#222"/>
+<line x1="203.7" x2="215.7" y1="270.0" y2="270.0" stroke="#222"/>
+<text x="209.7" y="286" font-size="11" text-anchor="end" fill="#333" transform="rotate(-30 209.7 286)">restore_only</text>
+<rect x="275.8" y="270.0" width="62.2" height="0.0" fill="#3a9d5d" opacity="0.85"/>
+<text x="306.9" y="264.0" font-size="11" text-anchor="middle" fill="#222">0</text>
+<line x1="306.9" x2="306.9" y1="270.0" y2="270.0" stroke="#222"/>
+<line x1="300.9" x2="312.9" y1="270.0" y2="270.0" stroke="#222"/>
+<line x1="300.9" x2="312.9" y1="270.0" y2="270.0" stroke="#222"/>
+<text x="306.9" y="286" font-size="11" text-anchor="end" fill="#333" transform="rotate(-30 306.9 286)">random_reroute</text>
+<rect x="372.9" y="270.0" width="62.2" height="0.0" fill="#e8a33d" opacity="0.85"/>
+<text x="404.0" y="264.0" font-size="11" text-anchor="middle" fill="#222">0</text>
+<line x1="404.0" x2="404.0" y1="270.0" y2="270.0" stroke="#222"/>
+<line x1="398.0" x2="410.0" y1="270.0" y2="270.0" stroke="#222"/>
+<line x1="398.0" x2="410.0" y1="270.0" y2="270.0" stroke="#222"/>
+<text x="404.0" y="286" font-size="11" text-anchor="end" fill="#333" transform="rotate(-30 404.0 286)">full</text>
+<rect x="470.1" y="270.0" width="62.2" height="0.0" fill="#7b5ea7" opacity="0.85"/>
+<text x="501.1" y="264.0" font-size="11" text-anchor="middle" fill="#222">0</text>
+<line x1="501.1" x2="501.1" y1="270.0" y2="270.0" stroke="#222"/>
+<line x1="495.1" x2="507.1" y1="270.0" y2="270.0" stroke="#222"/>
+<line x1="495.1" x2="507.1" y1="270.0" y2="270.0" stroke="#222"/>
+<text x="501.1" y="286" font-size="11" text-anchor="end" fill="#333" transform="rotate(-30 501.1 286)">full_no_prediction</text>
+<rect x="567.2" y="270.0" width="62.2" height="0.0" fill="#3aa1a8" opacity="0.85"/>
+<text x="598.3" y="264.0" font-size="11" text-anchor="middle" fill="#222">0</text>
+<line x1="598.3" x2="598.3" y1="270.0" y2="270.0" stroke="#222"/>
+<line x1="592.3" x2="604.3" y1="270.0" y2="270.0" stroke="#222"/>
+<line x1="592.3" x2="604.3" y1="270.0" y2="270.0" stroke="#222"/>
+<text x="598.3" y="286" font-size="11" text-anchor="end" fill="#333" transform="rotate(-30 598.3 286)">full_no_trust</text>
+<rect x="664.3" y="178.0" width="62.2" height="92.0" fill="#8d6e63" opacity="0.85"/>
+<text x="695.4" y="128.1" font-size="11" text-anchor="middle" fill="#222">2</text>
+<line x1="695.4" x2="695.4" y1="221.9" y2="134.1" stroke="#222"/>
+<line x1="689.4" x2="701.4" y1="221.9" y2="221.9" stroke="#222"/>
+<line x1="689.4" x2="701.4" y1="134.1" y2="134.1" stroke="#222"/>
+<text x="695.4" y="286" font-size="11" text-anchor="end" fill="#333" transform="rotate(-30 695.4 286)">full_no_verify</text>
+<text x="64" y="352" font-size="10" fill="#777">mean with 95% CI over seeds; simulated</text>
+</svg>
